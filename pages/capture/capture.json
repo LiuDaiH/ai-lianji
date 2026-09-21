@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "录入知识点",
+  "usingComponents": {
+    "coach": "/components/coach/coach"
+  },
+  "navigationBarBackgroundColor": "#1FA76B",
+  "navigationBarTextStyle": "white"
+}

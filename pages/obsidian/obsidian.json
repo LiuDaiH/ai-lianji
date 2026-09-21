@@ -1,0 +1,9 @@
+{
+  "usingComponents": {
+    "intro": "/components/intro/intro",
+    "coach": "/components/coach/coach"
+  },
+  "navigationBarTitleText": "Obsidian 同步",
+  "navigationBarBackgroundColor": "#2B3C63",
+  "navigationBarTextStyle": "white"
+}

@@ -1,0 +1,279 @@
+<!-- pages/categories/categories.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
+<view class="container">
+
+  <!-- ============ 视图切换 ============ -->
+  <view class="seg-tabs three" id="cattabs">
+    <view class="seg-tab {{view === 'radial' ? 'on' : ''}}" data-v="radial" bindtap="onSwitchView">
+      <text class="seg-ico">🌐</text>发散图
+    </view>
+    <view class="seg-tab {{view === 'graph' ? 'on' : ''}}" data-v="graph" bindtap="onSwitchView">
+      <text class="seg-ico">🌳</text>树图
+    </view>
+    <view class="seg-tab {{view === 'list' ? 'on' : ''}}" data-v="list" bindtap="onSwitchView">
+      <text class="seg-ico">☰</text>列表
+    </view>
+  </view>
+
+  <!-- ============ ① 发散图（Obsidian 风格） ============ -->
+  <block wx:if="{{view === 'radial'}}">
+
+    <view class="card g-head">
+      <view class="gh-row">
+        <view class="gh-left">
+          <view class="gh-title">类别辐射图</view>
+          <view class="subtle">{{totalCats}} 个类别 · {{maxDepth}} 层 · 从中心向外发散</view>
+        </view>
+        <view class="gh-ops">
+          <view class="gh-btn" bindtap="onRecenter">回中心</view>
+          <view class="gh-btn" bindtap="onExpandAll">全展</view>
+          <view class="gh-btn" bindtap="onCollapseAll">收顶</view>
+        </view>
+      </view>
+      <view class="levels">
+        <view class="lv"><view class="lv-dot d-mastered"></view>已掌握</view>
+        <view class="lv"><view class="lv-dot d-learning"></view>学习中</view>
+        <view class="lv"><view class="lv-dot d-weak"></view>薄弱</view>
+        <view class="lv"><view class="lv-dot d-new"></view>未学</view>
+      </view>
+    </view>
+
+    <view class="card graph-card" id="catgraph">
+      <view class="empty" wx:if="{{rNodes.length <= 1}}">
+        <view>还没有类别</view>
+        <view class="subtle empty-sub">用下面的「⚡ 大纲快速建树」贴一份大纲，一次成型</view>
+      </view>
+
+      <block wx:else>
+        <view class="dense-hint" wx:if="{{rDense}}">
+          节点较多，图会偏密 —— 点「收顶」只看主干，或切到「列表」
+        </view>
+
+        <scroll-view scroll-x scroll-y class="radial-wrap" style="height:{{rBoxH}}px"
+                     scroll-left="{{rScrollLeft}}" scroll-top="{{rScrollTop}}">
+          <view class="r-canvas" style="width:{{rW}}px;height:{{rH}}px">
+
+            <view class="r-edge" wx:for="{{rEdges}}" wx:key="id"
+                  style="left:{{item.x1}}px;top:{{item.y1}}px;width:{{item.len}}px;transform:rotate({{item.rot}}deg)"></view>
+
+            <view class="r-node n-{{item.tier}} {{item.isCenter ? 'center' : ''}} {{item.id === highlightId ? 'hl' : ''}}"
+                  wx:for="{{rNodes}}" wx:key="id"
+                  style="left:{{item.x}}px;top:{{item.y}}px"
+                  data-id="{{item.id}}" bindtap="onRNodeTap" bindlongpress="onRNodeHold"
+                  hover-class="r-node-hover">
+              <view class="r-nname">{{item.name}}</view>
+              <view class="r-ncnt" wx:if="{{!item.isCenter}}">{{item.count}}</view>
+            </view>
+
+          </view>
+        </scroll-view>
+
+        <view class="g-hint subtle">
+          点节点 = 展开/收起（叶子节点点开菜单）· 长按 = 全部操作 · 可拖动
+        </view>
+      </block>
+    </view>
+
+    <view class="btn-row" id="catcreate">
+      <view hover-class="hover-dim" class="btn-primary f1" bindtap="onOpenOutline">⚡ 大纲快速建树</view>
+      <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onAddRoot">＋ 单个新建</view>
+    </view>
+  </block>
+
+  <!-- ============ ② 横向树图 ============ -->
+  <block wx:elif="{{view === 'graph'}}">
+
+    <view class="card g-head">
+      <view class="gh-row">
+        <view class="gh-left">
+          <view class="gh-title">类别关系图</view>
+          <view class="subtle">{{totalCats}} 个类别 · {{maxDepth}} 层 · 可左右上下拖动</view>
+        </view>
+        <view class="gh-ops">
+          <view class="gh-btn" bindtap="onExpandAll">全展</view>
+          <view class="gh-btn" bindtap="onCollapseAll">收顶</view>
+        </view>
+      </view>
+      <view class="levels">
+        <view class="lv"><view class="lv-dot d-mastered"></view>已掌握</view>
+        <view class="lv"><view class="lv-dot d-learning"></view>学习中</view>
+        <view class="lv"><view class="lv-dot d-weak"></view>薄弱</view>
+        <view class="lv"><view class="lv-dot d-new"></view>未学</view>
+      </view>
+    </view>
+
+    <view class="card graph-card">
+      <view class="empty" wx:if="{{gNodes.length === 0}}">
+        <view>还没有类别</view>
+        <view class="subtle empty-sub">用下面的「⚡ 大纲快速建树」贴一份大纲，一次成型</view>
+      </view>
+
+      <scroll-view wx:else scroll-x scroll-y class="graph-wrap">
+        <view class="sizer" style="width:{{gWidth}}px;height:{{gHeight}}px">
+          <view class="canvas" style="width:{{gWidth}}px;height:{{gHeight}}px">
+
+            <view class="eg eg-h" wx:for="{{gEdges}}" wx:key="id"
+                  style="left:{{item.h1l}}px;top:{{item.y1}}px;width:{{item.h1w}}px"></view>
+            <view class="eg eg-v" wx:for="{{gEdges}}" wx:key="id"
+                  style="left:{{item.vl}}px;top:{{item.vTop}}px;height:{{item.vH}}px"></view>
+            <view class="eg eg-h" wx:for="{{gEdges}}" wx:key="id"
+                  style="left:{{item.h2l}}px;top:{{item.y2}}px;width:{{item.h2w}}px"></view>
+
+            <view class="nd t-{{item.tier}} {{item.id === highlightId ? 'hl' : ''}} {{item.hasChildren ? 'has-kid' : 'leaf'}}"
+                  wx:for="{{gNodes}}" wx:key="id"
+                  style="left:{{item.x}}px;top:{{item.y}}px"
+                  data-id="{{item.id}}" bindtap="onNodeTap" bindlongpress="onNodeHold">
+              <view class="nd-mark">{{item.hasChildren ? (item.expanded ? '▾' : '▸') : ''}}</view>
+              <view class="nd-body">
+                <view class="nd-name">{{item.name}}</view>
+                <view class="nd-meta">{{item.count}} 张 · {{item.pct}}%</view>
+              </view>
+            </view>
+
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="g-hint subtle" wx:if="{{gNodes.length}}">
+        点节点 = 展开/收起（叶子节点点开菜单）· 长按 = 全部操作
+      </view>
+    </view>
+
+    <view class="btn-row">
+      <view hover-class="hover-dim" class="btn-primary f1" bindtap="onOpenOutline">⚡ 大纲快速建树</view>
+      <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onAddRoot">＋ 单个新建</view>
+    </view>
+  </block>
+
+  <!-- ============ ③ 列表 ============ -->
+  <block wx:else>
+
+    <view class="card intro">
+      <view class="title">类别是一棵「树」</view>
+      <view class="subtle">父类别自动包含它的所有子类别 —— 统计、复习、出题都能按整棵子树来算</view>
+    </view>
+
+    <view class="search">
+      <input class="search-input" value="{{keyword}}" bindinput="onSearch"
+             placeholder="搜索类别，点结果即可定位" placeholder-class="ph" confirm-type="search" />
+      <view class="search-clear" wx:if="{{keyword}}" bindtap="onClearSearch">×</view>
+    </view>
+
+    <view class="card" wx:if="{{results.length > 0}}">
+      <view hover-class="hover-dim" class="res-item" wx:for="{{results}}" wx:key="id"
+            data-id="{{item.id}}" bindtap="onLocate">
+        <view class="res-name">{{item.name}}</view>
+        <view class="res-path">{{item.path}}</view>
+        <view class="res-go">定位 ›</view>
+      </view>
+    </view>
+    <view class="no-result" wx:elif="{{keyword}}">没有匹配的类别</view>
+
+    <view class="tool-row" wx:if="{{!keyword}}">
+      <text class="tool" bindtap="onExpandAll">全部展开</text>
+      <text class="tool" bindtap="onCollapseAll">只展顶层</text>
+      <text class="tool count">共 {{totalCats}} 个 · {{maxDepth}} 层</text>
+    </view>
+
+    <view class="card tree-card" wx:if="{{!keyword}}">
+      <view class="empty" wx:if="{{tree.length === 0}}">还没有类别，点下面新建一个</view>
+
+      <view class="row lv{{item.depth}}" wx:for="{{tree}}" wx:key="id" id="cat-{{item.id}}">
+
+        <view class="seg" wx:for="{{item.indent}}" wx:for-item="hasLine" wx:key="index">
+          <view class="vline" wx:if="{{hasLine}}"></view>
+        </view>
+
+        <view class="seg">
+          <view class="vline half" wx:if="{{!item.isLast}}"></view>
+          <view class="hline"></view>
+        </view>
+
+        <view class="dot-wrap">
+          <view class="dot d{{item.depth}}" wx:if="{{item.hasChildren}}"></view>
+          <view class="dot dot-leaf d{{item.depth}}" wx:else></view>
+        </view>
+
+        <view class="body t-{{item.tier}} {{item.id === highlightId ? 'hl' : ''}}">
+          <view class="toggle" wx:if="{{item.hasChildren}}" data-id="{{item.id}}" bindtap="onToggle">
+            {{item.expanded ? '▾' : '▸'}}
+          </view>
+          <view class="name" data-id="{{item.id}}" bindtap="onTapCat">{{item.name}}</view>
+          <view class="cnt">{{item.count}}</view>
+          <view class="more" data-id="{{item.id}}" catchtap="onMore">⋯</view>
+        </view>
+      </view>
+
+      <view class="row lv0 none-row" wx:if="{{noneCount > 0}}">
+        <view class="seg"><view class="hline"></view></view>
+        <view class="dot-wrap"><view class="dot dot-none"></view></view>
+        <view class="body">
+          <view class="name muted">未分类</view>
+          <view class="cnt">{{noneCount}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="btn-row" wx:if="{{!keyword}}">
+      <view hover-class="hover-dim" class="btn-primary f1" bindtap="onOpenOutline">⚡ 大纲快速建树</view>
+      <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onAddRoot">＋ 单个新建</view>
+    </view>
+    <view class="tip subtle" wx:if="{{!keyword}}">
+      点「⋯」可在任意层级加子类 / 改名 / 删除；点类别名跳去看它的卡片（含子类）
+    </view>
+  </block>
+
+  <!-- ============ 单个新建 / 改名 ============ -->
+  <view class="mask" wx:if="{{editing}}" catchtouchmove="noop">
+    <view class="dialog">
+      <view class="d-title">{{editorTitle}}</view>
+      <view class="d-label">类别名称</view>
+      <input class="d-input" value="{{editorName}}" bindinput="onEditorName"
+             placeholder="例如：Python、算法、第三章" placeholder-class="ph" focus />
+      <block wx:if="{{editorMode === 'add'}}">
+        <view class="d-label">挂在哪个类别下</view>
+        <view class="d-parent" bindtap="onOpenParentPick" hover-class="hover-dim">
+          <view class="d-parent-text">{{editorParentText}}</view>
+          <view class="d-parent-go">🌐 用发散图选 ›</view>
+        </view>
+        <view class="keep {{keepOpen ? 'on' : ''}}" bindtap="onToggleKeep">
+          <view class="chk">{{keepOpen ? '✓' : ''}}</view>连续新建（留在这个弹窗里接着敲）
+        </view>
+      </block>
+      <view class="d-ops">
+        <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onEditorCancel">取消</view>
+        <view hover-class="hover-dim" class="btn-primary f1" bindtap="onEditorConfirm">确定</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 大纲批量建树 ============ -->
+  <view class="mask" wx:if="{{outlining}}" catchtouchmove="noop">
+    <view class="dialog outline">
+      <view class="d-title">⚡ 大纲快速建树</view>
+      <view class="d-label">粘贴一份大纲，缩进决定层级</view>
+      <textarea class="d-area" value="{{outlineText}}" bindinput="onOutlineInput"
+                placeholder="计算机&#10;  Python&#10;    面向对象&#10;  算法&#10;数学&#10;  概率论"
+                placeholder-class="ph" auto-height maxlength="-1" />
+      <view class="ol-stat subtle" wx:if="{{outlineStat}}">{{outlineStat}}</view>
+      <view class="ol-help subtle">
+        Tab 或 2 / 4 个空格 = 下一层；也支持 <text class="code"># ## ###</text> 标题式（井号个数即层级）
+        和 <text class="code">- </text><text class="code">1. </text> 列表前缀。
+        同名类别会自动复用，不会重复创建。
+      </view>
+      <view class="d-ops">
+        <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onOutlineCancel">取消</view>
+        <view hover-class="hover-dim" class="btn-primary f1" bindtap="onOutlineConfirm">创建</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 发散图选父类别 -->
+  <cat-picker mode="parent" show="{{parentPickShow}}" bind:parentpick="onParentPicked" />
+
+
+  <coach id="coach" flow="{{tourFlow}}" active="{{tourActive}}"
+         bind:close="onTourClose" bind:lock="onTourLock" />
+
+</view>

@@ -1,0 +1,46 @@
+<!-- components/coach/coach.wxml -->
+<!--
+  两种模式：
+    A. 定位成功 → 四块遮罩「挖洞」，中间留出目标元素，用户能点到真实控件；
+                  高亮框 = 四块遮罩朝向洞的那条边框（不用独立元素，避免挡住点击）。
+    B. 定位失败 → 降级为整块蒙层 + 居中气泡，引导照常可走。
+  推进有两条路（都不会卡住）：
+    ① 点高亮位置的真实控件 → 页面 notify → 前进
+    ② 点气泡上的按钮        → 直接前进
+-->
+<block wx:if="{{visible && ready}}">
+
+  <!-- ===== 模式 A：挖洞 ===== -->
+  <block wx:if="{{!noHole}}">
+    <view class="m-top"    style="height:{{hole.top}}px"
+          catchtouchmove="noop" bindtap="onMaskTap"></view>
+    <view class="m-left"   style="top:{{hole.top}}px;height:{{hole.height}}px;width:{{hole.left}}px"
+          catchtouchmove="noop" bindtap="onMaskTap"></view>
+    <view class="m-right"  style="top:{{hole.top}}px;height:{{hole.height}}px;left:{{hole.left + hole.width}}px"
+          catchtouchmove="noop" bindtap="onMaskTap"></view>
+    <view class="m-bottom" style="top:{{hole.top + hole.height}}px"
+          catchtouchmove="noop" bindtap="onMaskTap"></view>
+  </block>
+
+  <!-- ===== 模式 B：整块蒙层 ===== -->
+  <view class="m-full" wx:else catchtouchmove="noop" bindtap="onMaskTap"></view>
+
+  <!-- 提示气泡 -->
+  <view class="tip {{noHole ? 'center' : (tipTop ? 'above' : 'below')}}" style="{{tipStyle}}">
+    <view class="tip-head">
+      <view class="tip-step">{{step + 1}} / {{steps.length}}</view>
+      <view class="tip-title">{{cur.title}}</view>
+    </view>
+    <view class="tip-desc">{{cur.desc}}</view>
+
+
+    <view class="tip-ops">
+      <view hover-class="hover-dim" class="tbtn ghost" bindtap="skip">跳过</view>
+      <view hover-class="hover-dim" class="tbtn ghost" bindtap="prev" wx:if="{{step > 0}}">上一步</view>
+      <view hover-class="hover-dim" class="tbtn primary {{cur.action && !noHole ? 'pulse' : ''}}" bindtap="onAdvance">
+        {{cur.action && !noHole ? '点高亮位置，或点这里 ›' : '下一步'}}
+      </view>
+    </view>
+  </view>
+
+</block>

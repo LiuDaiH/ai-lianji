@@ -1,0 +1,149 @@
+<!-- pages/capture/capture.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
+<view class="container">
+
+  <!-- ===================== 阶段一：输入 + 解析预览 ===================== -->
+  <block wx:if="{{stage === 'input'}}">
+
+    <view class="card">
+      <view class="title">把讲义粘进来</view>
+      <view class="subtle hint">粘好之后选一种「解析方式」，下面会立刻给你看切分成什么样、能出哪些题</view>
+      <textarea class="input" id="raw" value="{{raw}}" bindinput="onInput"
+        placeholder="粘贴讲义文字…&#10;&#10;不管什么格式都先粘进来，切法下面可以选"
+        placeholder-class="ph" maxlength="-1" auto-height />
+      <view class="row-between subtle">
+        <text>{{raw.length}} 字</text>
+        <text class="link" bindtap="onPaste" hover-class="hover-dim">从剪贴板粘贴</text>
+      </view>
+    </view>
+
+    <!-- 解析方式 -->
+    <view class="card" id="cat-pick">
+      <view class="title">解析方式</view>
+      <view class="subtle">不确定就保持「智能识别」，它会看你的文本结构自动判断</view>
+      <view class="strats">
+        <view class="strat {{index === strategyIndex ? 'on' : ''}}"
+              wx:for="{{strategies}}" wx:key="key"
+              data-idx="{{index}}" bindtap="onPickStrategy" hover-class="hover-dim">{{item.name}}</view>
+      </view>
+      <view class="strat-desc subtle">{{strategies[strategyIndex].desc}}</view>
+
+      <!-- AI 切卡的状态提示 -->
+      <view class="ai-note" wx:if="{{strategyKey === 'ai'}}">
+        <block wx:if="{{aiBusy}}">
+          <view class="ai-busy"><view class="ai-dot"></view>AI 正在读你的讲义、切成卡片…</view>
+        </block>
+        <block wx:elif="{{!aiOn}}">
+          <view class="ai-off">⚠️ 还没配置云开发环境 ID —— 仍然可以点「切分预览」，会自动降级用本地「智能识别」</view>
+          <view hover-class="hover-dim" class="ai-link" bindtap="goHelp">去「关于这个工具」配置 ›</view>
+        </block>
+        <block wx:else>
+          <view class="ai-on">✓ AI 已就绪（由微信云开发托管，Key 不落在前端）</view>
+        </block>
+      </view>
+
+      <block wx:if="{{strategyKey === 'custom'}}">
+        <view class="cust">
+          <view class="cust-row">
+            <view class="cust-label">卡片之间用</view>
+            <input class="cust-input" value="{{cardSep}}" bindinput="onCardSep"
+                   placeholder="例如 === 或空行" placeholder-class="ph" />
+          </view>
+          <view class="cust-row">
+            <view class="cust-label">标题与内容用</view>
+            <input class="cust-input" value="{{kvSep}}" bindinput="onKvSep"
+                   placeholder="例如 ：或 | 或空着" placeholder-class="ph" />
+          </view>
+          <view class="subtle cust-tip">
+            例：卡片之间填 <text class="mono">===</text>、标题内容之间填 <text class="mono">：</text>，
+            就能解析「类的定义：类是对象的抽象===继承：子类获得父类的方法」
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <!-- ============ 实时预览 + 出题能力 ============ -->
+    <view class="card" id="preview-card" wx:if="{{info.total > 0}}">
+      <view class="title">切分预览</view>
+      <view class="pv-line">
+        系统判断为 <text class="pv-strong">{{pickedName}}</text> · 共切出
+        <text class="pv-strong">{{info.total}}</text> 张
+      </view>
+
+      <!-- 出题能力总览 -->
+      <view class="ability">
+        <view class="ab-title">这批卡片能出这些题</view>
+        <view class="ab-modes {{modesBrief === '（还出不了题）' ? 'none' : ''}}">{{modesBrief}}</view>
+        <view class="ab-note subtle" wx:if="{{modesWeak > 0}}">
+          其中 <text class="warn">{{modesWeak}}</text> 张出不了好题 —— 通常是因为"没内容"或"标题和内容一样"，
+          补一句解释就能出全部 5 种题
+        </view>
+        <view class="ab-note subtle" wx:else>
+          很好 —— 这批卡片的题型都能用上
+        </view>
+      </view>
+
+      <!-- 逐张预览（含该卡能出的题型） -->
+      <view class="pv-item" wx:for="{{preview}}" wx:key="_i">
+        <view class="pv-idx">{{item._i}}</view>
+        <view class="pv-title">{{item.title}}</view>
+        <view class="pv-content" wx:if="{{item.content && item.content !== item.title}}">{{item.content}}</view>
+        <view class="pv-same subtle" wx:else>（没有独立答案 · 只能出选择题/填空题）</view>
+        <view class="pv-modes {{item._level}}">
+          可出：{{item._modes || '—'}}
+        </view>
+      </view>
+      <view class="subtle pv-more" wx:if="{{moreCount > 0}}">还有 {{moreCount}} 张，下一步可以逐张查看</view>
+    </view>
+
+    <!-- 放进哪个类别 -->
+    <view class="card">
+      <view class="sec-head">这些卡片放进哪个类别</view>
+      <picker mode="selector" range="{{catOptions}}" range-key="label" value="{{catIndex}}" bindchange="onPickCat">
+        <view class="picker">{{catLabel}} ▾</view>
+      </picker>
+    </view>
+
+    <view class="btn-primary" id="split" bindtap="onSplit" hover-class="hover-dim">下一步：逐张确认</view>
+    <view class="btn-ghost tour-btn" bindtap="onRestartTour" hover-class="hover-dim">看一遍操作引导</view>
+  </block>
+
+  <!-- ===================== 阶段二：逐张编辑（带诊断） ===================== -->
+  <block wx:else>
+    <view class="card head">
+      <view class="title">共 {{cards.length}} 张，逐张确认</view>
+      <view class="subtle">将存入：<text class="link-t">{{catLabel}}</text>。改完内容，下面的"能出什么题"会实时更新</view>
+    </view>
+
+    <view class="card" wx:for="{{cards}}" wx:key="index">
+      <view class="card-idx">{{index + 1}}</view>
+      <input class="t-input" value="{{item.title}}" data-idx="{{index}}" bindinput="onCardTitle"
+             placeholder="标题（知识点名称）" placeholder-class="ph" />
+      <textarea class="c-input" value="{{item.content}}" data-idx="{{index}}" bindinput="onCardContent"
+                placeholder="内容（要点、解释）—— 有内容才能出判断题/填空题/默写题"
+                placeholder-class="ph" auto-height />
+
+      <!-- 该卡的出题能力与建议 -->
+      <view class="diag {{item._level}}">
+        <view class="diag-line">
+          <text class="diag-badge">{{item._level === 'good' ? '题型齐全' : (item._level === 'ok' ? '还不错' : '需要补一补')}}</text>
+          <text class="diag-modes">可出：{{item._modes || '—'}}</text>
+        </view>
+        <view class="diag-tip" wx:for="{{item._tips}}" wx:for-item="t" wx:key="*this">· {{t}}</view>
+      </view>
+
+      <view class="ops">
+        <text class="op" data-idx="{{index}}" bindtap="onMergeUp" wx:if="{{index > 0}}" hover-class="hover-dim">并入上一张</text>
+        <text class="op danger" data-idx="{{index}}" bindtap="onDelCard" hover-class="hover-dim">删除</text>
+      </view>
+    </view>
+
+    <view class="btn-ghost" bindtap="onAddBlank" hover-class="hover-dim">+ 手动加一张</view>
+    <view class="btn-primary save" id="save" bindtap="onSave" hover-class="hover-dim">确认保存</view>
+    <view class="btn-ghost back" bindtap="onBack" hover-class="hover-dim">返回改解析方式</view>
+  </block>
+
+  <coach id="coach" bind:lock="onTourLock" flow="{{tourFlow}}" active="{{tourActive}}" bind:close="onTourClose" />
+
+</view>

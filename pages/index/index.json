@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "AI链记",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "coach": "/components/coach/coach",
+    "cat-picker": "/components/cat-picker/cat-picker",
+    "intro": "/components/intro/intro"
+  },
+  "navigationBarBackgroundColor": "#3B6FF5",
+  "navigationBarTextStyle": "white"
+}

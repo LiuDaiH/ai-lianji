@@ -1,0 +1,139 @@
+<!-- pages/stats/stats.wxml -->
+<view class="container">
+
+  <view class="cat-bar" id="cat-bar" bindtap="onOpenPicker" wx:if="{{!isEmpty}}">
+    <view class="cat-bar-label">范围</view>
+    <view class="cat-bar-value">{{rangeText}}</view>
+    <view class="cat-bar-go">切换 ›</view>
+  </view>
+
+  <view class="card" id="kpi-card">
+    <view class="kpis">
+      <view class="kpi"><view class="kpi-num">{{total}}</view><view class="subtle">卡片</view></view>
+      <view class="kpi"><view class="kpi-num">{{dueCount}}</view><view class="subtle">待复习</view></view>
+      <view class="kpi"><view class="kpi-num">{{streak}}</view><view class="subtle">连续天数</view></view>
+      <view class="kpi"><view class="kpi-num">{{totalReviews}}</view><view class="subtle">累计复习</view></view>
+    </view>
+  </view>
+
+  <view class="card" id="heat-card">
+    <view class="sec">学习热力图</view>
+    <view class="subtle">
+      最近 8 周，每格一天，颜色越深练得越多 · 范围：{{rangeShort}}
+    </view>
+
+    <view class="heat-box">
+      <!-- 顶部月份刻度 -->
+      <view class="heat-months">
+        <text class="heat-month" wx:for="{{heat.monthSpans}}" wx:key="col"
+              style="left:{{item.col * 34}}rpx">{{item.text}}</text>
+      </view>
+
+      <view class="heat-body">
+        <!-- 左侧星期刻度 -->
+        <view class="heat-days">
+          <text class="heat-day" wx:for="{{heat.rowLabels}}" wx:key="row"
+                style="top:{{item.row * 34}}rpx">{{item.text}}</text>
+        </view>
+
+        <!-- 格子 -->
+        <view class="heat">
+          <view class="heat-col" wx:for="{{heat.grid}}" wx:for-item="col" wx:key="index">
+            <view class="heat-cell lv{{cell.level}} {{cell.isToday ? 'today' : ''}} {{cell.key === pickedKey ? 'picked' : ''}}"
+                  wx:for="{{col}}" wx:for-item="cell" wx:key="key"
+                  data-key="{{cell.key}}" data-count="{{cell.count}}"
+                  data-md="{{cell.md}}" data-future="{{cell.isFuture}}"
+                  bindtap="onPickDay"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 点格子的读数 -->
+    <view class="heat-read {{pickedDay ? '' : 'idle'}}">
+      <block wx:if="{{pickedDay}}">
+        <text class="hr-date">{{pickedDay.md}}</text>
+        <text class="hr-val" wx:if="{{pickedDay.future}}">还没到 · 未开始</text>
+        <text class="hr-val" wx:elif="{{pickedDay.count > 0}}">复习 {{pickedDay.count}} 次</text>
+        <text class="hr-val none" wx:else>这天没有复习记录</text>
+      </block>
+      <block wx:else>点任意一格，看那天练了多少</block>
+    </view>
+
+    <!-- 图例：给出具体数值，而不是笼统的"少 / 多" -->
+    <view class="heat-legend">
+      <view class="hl-item"><view class="heat-cell lv0"></view><text>0</text></view>
+      <view class="hl-item"><view class="heat-cell lv1"></view><text>1-4</text></view>
+      <view class="hl-item"><view class="heat-cell lv2"></view><text>5-14</text></view>
+      <view class="hl-item"><view class="heat-cell lv3"></view><text>15+</text></view>
+      <view class="hl-item"><view class="heat-cell lv-1"></view><text>未到</text></view>
+    </view>
+
+    <!-- 一句话总结 -->
+    <view class="heat-sum">
+      最近 8 周合计 <text class="hs-n">{{heat.summary.total}}</text> 次，
+      有记录 <text class="hs-n">{{heat.summary.activeDays}}</text> 天<block
+      wx:if="{{heat.summary.best > 0}}">，最猛的一天 <text class="hs-n">{{heat.summary.best}}</text> 次（{{heat.summary.bestDay}}）</block>。
+    </view>
+  </view>
+
+  <view class="card" id="hard-card">
+    <view class="sec">最需要补的 5 张</view>
+    <view class="subtle">当前范围内按错误率排</view>
+    <view class="empty" wx:if="{{hardest.length === 0}}">还没有足够数据</view>
+    <view hover-class="hover-dim" class="hard-item" wx:for="{{hardest}}" wx:key="id" data-id="{{item.id}}" bindtap="onTapNote">
+      <view class="hard-left">
+        <view class="hard-title">{{item.title}}</view>
+        <view class="subtle">复习 {{item.reviewCount}} 次 · 错误率偏高</view>
+      </view>
+      <view class="hard-bar"><view class="hard-fill" style="width:{{item._err * 100}}%"></view></view>
+    </view>
+  </view>
+
+  <view class="card" id="advice-card" wx:if="{{aiOn}}">
+    <view class="sec">AI 学习诊断</view>
+    <view class="subtle">把上面这些数据交给 AI 读一遍，它会告诉你现在最该干什么</view>
+
+    <view class="advice-box loading" wx:if="{{adviceLoading}}">
+      <view class="advice-dot"></view>AI 正在读你的学习数据…
+    </view>
+    <view class="advice-box" wx:elif="{{advice}}">
+      <view class="advice-badge">🤖 AI 教练</view>
+      <view class="advice-text">{{advice}}</view>
+    </view>
+
+    <view hover-class="hover-dim" class="btn-ai mt" bindtap="onAskAdvice">
+      {{advice ? '再问一次' : '🤖 看看我该练什么'}}
+    </view>
+    <view class="advice-note subtle" wx:if="{{!aiOn}}">还没配置云开发 —— 配置后这里就能用</view>
+  </view>
+
+  <view class="card" id="obsidian-card">
+    <view class="sec">Obsidian 同步</view>
+    <view class="subtle">把 Obsidian 笔记导入成卡片，学完再把每个标题的掌握度写回笔记里</view>
+    <view hover-class="hover-dim" class="btn-primary mt" bindtap="goObsidian">打开 Obsidian 同步</view>
+  </view>
+
+  <view class="card" id="backup-card">
+    <view class="sec">数据备份</view>
+    <view class="subtle">数据存在本机。换手机或重装前，先导出一份（含类别）</view>
+    <view hover-class="hover-dim" class="btn-primary mt" bindtap="onExport">导出备份文件</view>
+    <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onImport">从聊天文件导入</view>
+    <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onImportClipboard">从剪贴板导入</view>
+  </view>
+
+  <!-- 引导入口已独立到「关于这个工具」页；这里只放一个跳转 -->
+  <view class="card">
+    <view class="sec">使用帮助</view>
+    <view class="subtle">产品介绍、操作引导、数据备份都在这里</view>
+    <view hover-class="hover-dim" class="btn-ghost mt" bindtap="goHelp">打开「关于这个工具」</view>
+    <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onRestartTour">再看一遍本页引导</view>
+  </view>
+
+  <cat-picker show="{{showPicker}}" active="{{activeCat}}"
+              bind:pick="onPickCat" bind:change="onCatChange" />
+
+  <coach id="coach" flow="{{tourFlow}}" active="{{tourActive}}"
+         bind:close="onTourClose" bind:lock="onTourLock" />
+
+</view>

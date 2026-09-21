@@ -1,0 +1,14 @@
+# 微信开发者工具的本机私有配置（含本地路径、调试设置，不该进版本库）
+project.private.config.json
+
+# 开发辅助脚本与文档（不需要跟着小程序走，packOptions 也已排除）
+tools/
+docs/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 真实配置（含云开发环境 ID）不进版本库；模板见 ai-config.example.js
+ai-backup/ai-config.js
+utils/ai-config.js

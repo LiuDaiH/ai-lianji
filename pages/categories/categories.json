@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "类别管理",
+  "usingComponents": {
+    "cat-picker": "/components/cat-picker/cat-picker",
+    "coach": "/components/coach/coach"
+  },
+  "navigationBarBackgroundColor": "#1F97AB",
+  "navigationBarTextStyle": "white"
+}

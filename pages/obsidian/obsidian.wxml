@@ -1,0 +1,220 @@
+<!-- pages/obsidian/obsidian.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
+<view class="container">
+
+  <!-- ============ 创新点横幅 ============ -->
+  <view class="banner" id="obbanner">
+    <view class="bn-badge">核心创新点</view>
+    <view class="bn-title">Obsidian ⇄ 知识卡片</view>
+    <view class="bn-sub">
+      别的背单词软件把你锁在它自己的数据库里。这个不一样 ——
+      <text class="bn-em">你的笔记还是你的笔记</text>，
+      学完把掌握度直接写回 .md 文件。
+    </view>
+
+    <view class="loop">
+      <view class="loop-box">
+        <view class="lb-ico">📁</view>
+        <view class="lb-t">Obsidian<br/>vault</view>
+      </view>
+      <view class="loop-mid">
+        <view class="lm-line"></view>
+        <view class="lm-txt">.md</view>
+      </view>
+      <view class="loop-box hot">
+        <view class="lb-ico">📇</view>
+        <view class="lb-t">知识卡片<br/>小程序</view>
+      </view>
+      <view class="loop-mid">
+        <view class="lm-line back"></view>
+        <view class="lm-txt">掌握度</view>
+      </view>
+    </view>
+
+    <view class="loop-note">
+      ← 导入笔记，自动切成卡片；练完之后，每个标题下面会多一行掌握度标注 →
+    </view>
+  </view>
+
+  <!-- ============ 同步状态 ============ -->
+  <view class="card sync-card" id="obsync">
+    <view class="sec">同步状态</view>
+    <view class="sync-grid">
+      <view class="sg">
+        <view class="sg-n">{{syncStats.files}}</view>
+        <view class="subtle">个来源文件</view>
+      </view>
+      <view class="sg">
+        <view class="sg-n">{{syncStats.linked}}</view>
+        <view class="subtle">张卡记得出处</view>
+      </view>
+      <view class="sg">
+        <view class="sg-n">{{syncStats.nodes}}</view>
+        <view class="subtle">个可回写标题</view>
+      </view>
+      <view class="sg">
+        <view class="sg-n">{{syncStats.total}}</view>
+        <view class="subtle">张卡片总数</view>
+      </view>
+    </view>
+    <view class="subtle sync-tip" wx:if="{{syncStats.files === 0}}">
+      还没有导入过 Obsidian 笔记 —— 切到下面「导入」开始。
+    </view>
+    <view class="subtle sync-tip" wx:elif="{{syncStats.nodes === 0}}">
+      已导入笔记，但还没学出可回写的标题。先去「复习 / 小测」练几轮。
+    </view>
+  </view>
+
+  <view class="seg-tabs" id="obtabs">
+    <view class="seg-tab {{tab === 'in' ? 'on' : ''}}" data-tab="in" bindtap="switchTab">
+      <text class="seg-ico">📥</text>导入
+    </view>
+    <view class="seg-tab {{tab === 'out' ? 'on' : ''}}" data-tab="out" bindtap="switchTab">
+      <text class="seg-ico">📤</text>回写掌握度
+    </view>
+  </view>
+
+  <!-- ==================== 导入 ==================== -->
+  <block wx:if="{{tab === 'in'}}">
+
+    <view class="card hero">
+      <view class="hero-title">把 Obsidian 笔记搬进来</view>
+      <view class="hero-sub">
+        电脑上把 .md 发到微信「文件传输助手」，多个笔记可以打成一个 zip 一次带走。
+        小程序读不到本地文件夹，这是唯一一条通路。
+      </view>
+      <view class="flow">
+        <view class="flow-i"><text class="fi">1</text>Obsidian 导出 .md</view>
+        <view class="flow-arrow">↓</view>
+        <view class="flow-i"><text class="fi">2</text>发到「文件传输助手」</view>
+        <view class="flow-arrow">↓</view>
+        <view class="flow-i"><text class="fi">3</text>在这里选文件</view>
+      </view>
+    </view>
+
+    <view hover-class="hover-dim" class="btn-primary pick {{busy ? 'busy' : ''}}" bindtap="onPick">
+      {{busy ? '解析中…' : '📎 从聊天选文件（.md / .zip）'}}
+    </view>
+
+    <view class="card tip-card">
+      <view class="sec">会怎么解析</view>
+      <view class="rule"><text class="rk">文件夹</text>→ 一级、二级类别（zip 导入时）</view>
+      <view class="rule"><text class="rk"># 标题</text>→ 继续往下建子类别</view>
+      <view class="rule"><text class="rk">正文段落</text>→ 1 张卡片</view>
+      <view class="rule"><text class="rk">列表项 ≥2 条</text>→ 每条各 1 张卡片</view>
+      <view class="subtle rule-note">YAML frontmatter、代码块里的 # 都不会被当成标题。</view>
+    </view>
+
+    <!-- 预览 -->
+    <view class="card preview" wx:if="{{preview}}">
+      <view class="sec">解析预览</view>
+      <view class="stats">
+        <view class="st"><view class="st-n">{{preview.files}}</view><view class="subtle">个文件</view></view>
+        <view class="st"><view class="st-n">{{preview.cards}}</view><view class="subtle">张卡片</view></view>
+        <view class="st"><view class="st-n">{{preview.cats}}</view><view class="subtle">个类别</view></view>
+        <view class="st" wx:if="{{preview.zips}}">
+          <view class="st-n">{{preview.zips}}</view><view class="subtle">个 zip</view>
+        </view>
+      </view>
+
+      <view class="opts">
+        <view class="opt {{opt.folder ? 'on' : ''}}" data-k="folder" bindtap="onToggleOpt">
+          <view class="chk">{{opt.folder ? '✓' : ''}}</view>文件夹建成类别
+        </view>
+        <view class="opt {{opt.head ? 'on' : ''}}" data-k="head" bindtap="onToggleOpt">
+          <view class="chk">{{opt.head ? '✓' : ''}}</view>标题层级也建成类别
+        </view>
+      </view>
+      <view class="subtle opt-note">
+        两个都关掉 = 全部塞进「未分类」，只把内容当卡片。
+      </view>
+
+      <view class="sec tree-sec">类别树预览</view>
+      <scroll-view scroll-y class="tree-preview">
+        <view class="tp-row" wx:for="{{rows}}" wx:key="index" style="padding-left:{{item.depth * 22}}rpx">
+          <view class="tp-dash"></view>
+          <text class="tp-name">{{item.name}}</text>
+        </view>
+        <view class="subtle tp-more" wx:if="{{rows.length >= 120}}">… 只展示前 120 行</view>
+      </scroll-view>
+
+      <view class="d-ops">
+        <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onCancelPreview">取消</view>
+        <view hover-class="hover-dim" class="btn-primary f1" bindtap="onConfirmImport">确认导入</view>
+      </view>
+    </view>
+
+    <view class="card done" wx:if="{{result}}">
+      <view class="done-t">✅ {{result}}</view>
+    </view>
+  </block>
+
+  <!-- ==================== 回写 ==================== -->
+  <block wx:else>
+
+    <view class="card hero">
+      <view class="hero-title">把掌握度写回 Obsidian</view>
+      <view class="hero-sub">
+        每个标题下面会被插一条 Obsidian 原生高亮块，颜色直接表示掌握程度：
+      </view>
+      <view class="demo">
+        <view class="demo-h">## 梯度下降与学习率</view>
+        <view class="demo-c">
+          <text class="dc-tag">[!success]</text> 掌握度 82% · 复习 5 次 · 下次 9/23
+        </view>
+      </view>
+      <view class="levels">
+        <view class="lv"><view class="lv-dot d-mastered"></view>🟢 已掌握</view>
+        <view class="lv"><view class="lv-dot d-learning"></view>🔵 学习中</view>
+        <view class="lv"><view class="lv-dot d-weak"></view>🟠 薄弱</view>
+        <view class="lv"><view class="lv-dot d-new"></view>⚪ 未学</view>
+      </view>
+      <view class="subtle hero-foot">反复导出不会堆积标记：每次都会先清掉上一次写的，再重新插入。</view>
+    </view>
+
+    <view class="card">
+      <view class="sec">原文存档</view>
+      <view class="src-stat">
+        <view class="stat-big">{{sourceStats.files}}</view>
+        <view class="stat-txt">个文件 · 约 {{sourceStats.kb}} KB</view>
+      </view>
+      <view class="subtle">回写要拿原文件逐行改，所以导入时留了一份原文副本。</view>
+
+      <view class="src-list" wx:if="{{sources.length}}">
+        <view class="src-item" wx:for="{{sources}}" wx:key="relPath">
+          <view class="src-name">{{item.fileName}}</view>
+          <view class="subtle src-meta">{{item.relPath}}</view>
+        </view>
+      </view>
+
+      <view hover-class="hover-dim" class="btn-primary mt" bindtap="onExportAll"
+            wx:if="{{sources.length}}">📤 导出带掌握度的 .md</view>
+      <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onExportReport">📊 生成汇总报告 .md</view>
+      <view hover-class="hover-dim" class="link-btn" bindtap="onClearSources" wx:if="{{sources.length}}">
+        清空原文存档
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="sec">文件怎么回到 vault</view>
+      <view class="steps">
+        <view class="step"><text class="sn">1</text><view>点上面的导出，一次会弹一个分享面板</view></view>
+        <view class="step"><text class="sn">2</text><view>发到「文件传输助手」（发完自动跳下一个文件）</view></view>
+        <view class="step"><text class="sn">3</text><view>电脑上把收到的 .md 覆盖回 vault 对应位置</view></view>
+      </view>
+      <view hover-class="hover-dim" class="btn-soft mt" bindtap="onCopyGuide">复制完整往返流程</view>
+    </view>
+
+    <view class="card done" wx:if="{{result}}">
+      <view class="done-t">ℹ️ {{result}}</view>
+    </view>
+  </block>
+
+  <intro show="{{showIntro}}" bind:close="onIntroClose" />
+
+
+  <coach id="coach" flow="{{tourFlow}}" active="{{tourActive}}"
+         bind:close="onTourClose" bind:lock="onTourLock" />
+
+</view>

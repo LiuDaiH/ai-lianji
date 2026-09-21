@@ -1,0 +1,122 @@
+<!-- pages/index/index.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
+<view class="container">
+
+  <!-- ============ 品牌条 ============ -->
+  <view class="brand">
+    <image class="brand-logo" src="{{brand.LOGO}}" mode="aspectFit" />
+    <view class="brand-text">
+      <view class="brand-name">{{brand.NAME}}</view>
+      <view class="brand-tag">{{brand.TAGLINE}}</view>
+    </view>
+  </view>
+
+  <view class="cat-bar" id="cat-bar" bindtap="onOpenPicker" hover-class="hover-dim">
+    <view class="cat-bar-label">范围</view>
+    <view class="cat-bar-value">{{rangeText}}</view>
+    <view class="cat-bar-go">切换 ›</view>
+    <view class="help-btn" catchtap="goHelp">?</view>
+  </view>
+
+  <!-- ============ 一键开始 ============ -->
+  <view class="start-card {{urge ? 'urge' : ''}}" id="alert-bar" bindtap="onStartLearn"
+        hover-class="hover-dim" wx:if="{{!isEmpty}}">
+    <view wx:if="{{dueCount > 0}}">
+      <view class="sc-title">今天该复习 {{dueCount}} 张</view>
+      <view class="sc-sub">{{todayDone > 0 ? '已经练了 ' + todayDone + ' 张，接着来' : '5 种题型会按熟练度自动换'}}</view>
+    </view>
+    <view wx:elif="{{todayDone > 0}}">
+      <view class="sc-title">今天已练 {{todayDone}} 张</view>
+      <view class="sc-sub">想多练几轮也可以，间隔会自动调整</view>
+    </view>
+    <view wx:else>
+      <view class="sc-title">今天没有待复习的</view>
+      <view class="sc-sub">随便练一轮也行，练到的卡片间隔会重新安排</view>
+    </view>
+
+    <!-- 今日目标进度：把「今天练了几张」变成一条能填满的进度条 -->
+    <view class="sc-goal">
+      <view class="sc-goal-top">
+        <text class="sc-goal-label">今日目标 {{todayDone}}/{{goal}}</text>
+        <text class="sc-goal-tail" wx:if="{{!goalDone}}">还差 {{goalLeft}} 张</text>
+        <text class="sc-goal-tail done" wx:else>已达成 ✓</text>
+      </view>
+      <view class="sc-track">
+        <view class="sc-track-fill {{goalDone ? 'is-ok' : ''}}" style="width:{{goalPct}}%"></view>
+      </view>
+    </view>
+
+    <view class="sc-urge" wx:if="{{urge}}">{{urge}}</view>
+    <view class="sc-btn">开始学习 →</view>
+  </view>
+
+  <!-- ============ 概览 ============ -->
+  <view class="card brief" id="brief-card" wx:if="{{!isEmpty}}">
+    <view class="brief-row">
+      <view class="brief-item">
+        <text class="brief-num">{{totalShow}}</text>
+        <text class="subtle">张卡片</text>
+      </view>
+      <view class="brief-sep"></view>
+      <view class="brief-item">
+        <text class="brief-num {{streak > 0 ? 'hot' : ''}}">{{streakShow}}</text>
+        <text class="subtle">天连续</text>
+      </view>
+    </view>
+    <view class="stack">
+      <view class="seg seg-new grow"  style="width:{{mastery.newPct}}%"></view>
+      <view class="seg seg-learn grow" style="width:{{mastery.learningPct}}%"></view>
+      <view class="seg seg-master grow" style="width:{{mastery.masteredPct}}%"></view>
+    </view>
+    <view class="legend">
+      <view class="lg"><view class="dot d-new"></view>未学 {{mastery.new}}</view>
+      <view class="lg"><view class="dot d-learn"></view>学习中 {{mastery.learning}}</view>
+      <view class="lg"><view class="dot d-master"></view>已掌握 {{mastery.mastered}}</view>
+    </view>
+  </view>
+
+  <!-- ============ 空状态 ============ -->
+  <view class="onboard" wx:if="{{isEmpty}}">
+    <view class="ob-emoji">📇</view>
+    <view class="ob-title">还没有卡片</view>
+    <view class="ob-step">① 点右下角的「＋」<br/>② 把讲义粘进去<br/>③ 选一种解析方式，切分预览满意就保存</view>
+    <view class="btn-ghost ob-btn2" bindtap="onRestartTour" hover-class="hover-dim">先看一遍操作引导</view>
+  </view>
+
+  <!-- ============ 搜索 ============ -->
+  <view class="search" id="search-box" wx:if="{{!isEmpty}}">
+    <view class="search-ico">🔍</view>
+    <input class="search-input" value="{{keyword}}" bindinput="onSearch"
+           placeholder="搜索卡片标题或内容" placeholder-class="ph" confirm-type="search" />
+    <view class="search-clear" wx:if="{{keyword}}" bindtap="onClearSearch">×</view>
+  </view>
+
+  <!-- ============ 列表 ============ -->
+  <view class="card card-tap stagger note lv-{{item._lv}}" wx:for="{{view}}" wx:key="id" data-id="{{item.id}}"
+        bindtap="onTapNote" hover-class="hover-dim"
+        style="animation-delay:{{index < 8 ? index * 0.03 : 0}}s">
+    <view class="row-between">
+      <view class="title">{{item.title}}</view>
+      <view class="pill pill-due" wx:if="{{item._due}}">待复习</view>
+      <view class="pill pill-ok" wx:elif="{{item._lv === 'mastered'}}">已掌握</view>
+    </view>
+    <view class="cat-tag" wx:if="{{catPath[item.id]}}">{{catPath[item.id]}}</view>
+    <view class="subtle preview" wx:if="{{item.content}}">{{item.content}}</view>
+    <view class="pill pill-warn pill-nodot no-content" wx:else>还没填内容 · 点进去补充才能出题</view>
+    <view class="subtle meta">间隔 {{item.interval || 1}} 天 · 复习 {{item.reviewCount || 0}} 次</view>
+  </view>
+
+  <view class="empty" wx:if="{{!isEmpty && view.length === 0}}">这个范围内没有卡片</view>
+
+  <view class="fab breathe" id="fab" catchtap="goCapture" hover-class="hover-dim">＋</view>
+
+  <cat-picker show="{{showPicker}}" active="{{activeCat}}"
+              bind:pick="onPickCat" bind:change="onCatChange" />
+
+  <coach id="coach" bind:lock="onTourLock" flow="{{tourFlow}}" active="{{tourActive}}" bind:close="onTourClose" />
+
+  <!-- 首次自动弹出的产品介绍 -->
+  <intro show="{{showIntro}}" bind:close="onIntroClose" />
+
+</view>

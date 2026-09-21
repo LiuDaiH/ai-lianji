@@ -1,0 +1,72 @@
+/* components/coach/coach.wxss */
+
+/* ---------- 模式 A：四块遮罩（各自画朝向洞的那条高亮边） ---------- */
+.m-top, .m-left, .m-right, .m-bottom {
+  position: fixed; background: rgba(18,22,32,.68);
+  box-sizing: border-box;
+  z-index: 1000;
+  animation: mIn .2s ease both;
+}
+.m-top    { left: 0; right: 0; top: 0;    border-bottom: 4rpx solid rgba(108,143,247,.95); }
+.m-left   { left: 0;                      border-right:  4rpx solid rgba(108,143,247,.95); }
+.m-right  { right: 0;                     border-left:   4rpx solid rgba(108,143,247,.95); }
+.m-bottom { left: 0; right: 0; bottom: 0; border-top:    4rpx solid rgba(108,143,247,.95); }
+
+/* 只有透明度动画，绝不改变几何尺寸 —— 避免影响定位 */
+@keyframes mIn { from { opacity: .2 } to { opacity: 1 } }
+
+/* 高亮边呼吸 */
+.m-top    { animation: mIn .2s ease both, glowB 1.7s ease-in-out infinite; }
+.m-bottom { animation: mIn .2s ease both, glowT 1.7s ease-in-out infinite; }
+.m-left   { animation: mIn .2s ease both, glowR 1.7s ease-in-out infinite; }
+.m-right  { animation: mIn .2s ease both, glowL 1.7s ease-in-out infinite; }
+
+@keyframes glowB { 0%,100% { border-bottom-color: rgba(108,143,247,.55) } 50% { border-bottom-color: rgba(150,180,255,1) } }
+@keyframes glowT { 0%,100% { border-top-color:    rgba(108,143,247,.55) } 50% { border-top-color:    rgba(150,180,255,1) } }
+@keyframes glowR { 0%,100% { border-right-color:  rgba(108,143,247,.55) } 50% { border-right-color:  rgba(150,180,255,1) } }
+@keyframes glowL { 0%,100% { border-left-color:   rgba(108,143,247,.55) } 50% { border-left-color:   rgba(150,180,255,1) } }
+
+/* ---------- 模式 B：整块蒙层（定位失败时的降级） ---------- */
+.m-full {
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(18,22,32,.68);
+  z-index: 1000;
+  animation: mIn .2s ease both;
+}
+
+/* ---------- 提示气泡 ---------- */
+.tip {
+  position: fixed; left: 40rpx; right: 40rpx;
+  z-index: 1002;
+  background: #FFF; border-radius: 24rpx; padding: 32rpx 30rpx 24rpx;
+  box-shadow: 0 12rpx 40rpx rgba(18,22,32,.34);
+  animation: tipInDown .3s cubic-bezier(.2,.9,.3,1.15) both;
+}
+.tip.above { animation-name: tipInUp; }
+/* 降级模式（居中）：用 class 控制，避免 WXSS 不支持属性选择器 */
+.tip.center { animation-name: tipFade; }
+
+@keyframes tipInDown { from { opacity: 0; transform: translateY(16rpx) } to { opacity: 1; transform: translateY(0) } }
+@keyframes tipInUp   { from { opacity: 0; transform: translateY(-16rpx) } to { opacity: 1; transform: translateY(0) } }
+@keyframes tipFade   { from { opacity: 0 } to { opacity: 1 } }
+
+.tip-head { display: flex; align-items: center; margin-bottom: 12rpx; }
+.tip-step {
+  background: var(--brand-soft, #EDF2FF); color: var(--brand, #3B6FF5); font-size: 21rpx;
+  padding: 3rpx 14rpx; border-radius: 16rpx; margin-right: 14rpx; flex-shrink: 0;
+}
+.tip-title { font-size: 32rpx; font-weight: 700; color: #1F2430; }
+.tip-desc { font-size: 26rpx; color: #5A6072; line-height: 1.7; }
+
+.tip-ops { display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 24rpx; }
+.tbtn { padding: 14rpx 30rpx; border-radius: 32rpx; font-size: 26rpx; font-weight: 600; }
+.tbtn.ghost { background: #F2F4F9; color: #6B7280; }
+.tbtn.primary { background: var(--brand, #3B6FF5); color: #FFF; }
+.tbtn.pulse { animation: pulseBtn 1.4s ease-in-out infinite; }
+@keyframes pulseBtn {
+  0%,100% { transform: scale(1); box-shadow: 0 0 0 0 var(--brand-glow, rgba(59,111,245,.28)); }
+  50%     { transform: scale(1.04); box-shadow: 0 0 0 10rpx rgba(255,255,255,0); }
+}
+
+/* 组件内部的点按反馈（app.wxss 的 .hover-dim 在组件内不生效，必须自己定义） */
+.hover-dim { opacity: .74; transform: scale(.985); }

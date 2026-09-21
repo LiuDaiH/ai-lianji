@@ -1,0 +1,62 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/practice/practice",
+    "pages/capture/capture",
+    "pages/review/review",
+    "pages/obsidian/obsidian",
+    "pages/stats/stats",
+    "pages/quiz/quiz",
+    "pages/detail/detail",
+    "pages/categories/categories",
+    "pages/help/help"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#3B6FF5",
+    "navigationBarTitleText": "AI链记",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F6FA"
+  },
+  "tabBar": {
+    "color": "#9AA0AC",
+    "selectedColor": "#3B6FF5",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "卡片",
+        "iconPath": "images/tabbar/home.png",
+        "selectedIconPath": "images/tabbar/home-on.png"
+      },
+      {
+        "pagePath": "pages/review/review",
+        "text": "复习",
+        "iconPath": "images/tabbar/review.png",
+        "selectedIconPath": "images/tabbar/review-on.png"
+      },
+      {
+        "pagePath": "pages/practice/practice",
+        "text": "小测",
+        "iconPath": "images/tabbar/quiz.png",
+        "selectedIconPath": "images/tabbar/quiz-on.png"
+      },
+      {
+        "pagePath": "pages/obsidian/obsidian",
+        "text": "Obsidian",
+        "iconPath": "images/tabbar/sync.png",
+        "selectedIconPath": "images/tabbar/sync-on.png"
+      },
+      {
+        "pagePath": "pages/stats/stats",
+        "text": "统计",
+        "iconPath": "images/tabbar/stats.png",
+        "selectedIconPath": "images/tabbar/stats-on.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "__usePrivacyCheck__": true
+}

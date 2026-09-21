@@ -1,0 +1,109 @@
+/* ===== 本页主题色（覆盖 app.wxss 默认值） ===== */
+page {
+  --brand: #7C5BD9;
+  --brand-2: #A78BFA;
+  --brand-soft: #F1ECFE;
+  --brand-ghost: rgba(124, 91, 217, .10);
+  --brand-glow: rgba(124, 91, 217, .28);
+  --bg-1: #F7F5FF;
+  --bg-2: #EFEDFA;
+  --card-2: #FDFCFF;
+}
+
+/* pages/quiz/quiz.wxss */
+.bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8rpx 18rpx; gap: 14rpx;
+}
+.tag { background: var(--brand-soft); color: var(--brand); font-size: 22rpx; padding: 4rpx 18rpx; border-radius: 20rpx; flex-shrink: 0; }
+.prog { flex: 1; text-align: center; }
+.undo {
+  font-size: 23rpx; color: #5B4BD6; background: #F0EDFF;
+  padding: 8rpx 20rpx; border-radius: 24rpx; flex-shrink: 0;
+}
+.undo.off { color: #C2C8D6; background: #F5F7FB; }
+
+.qtip { margin-bottom: 12rpx; }
+.flip-title { font-size: 36rpx; font-weight: 700; color: #1F2430; line-height: 1.5; }
+.stem { font-size: 30rpx; line-height: 1.7; color: #1F2430; }
+.hint-box { margin-top: 20rpx; padding: 18rpx 20rpx; background: #FFF7E6; color: #B7791F; font-size: 25rpx; border-radius: 12rpx; line-height: 1.6; }
+.revealed { margin-top: 22rpx; padding: 22rpx; background: #F7F8FC; border-radius: 14rpx; font-size: 28rpx; line-height: 1.75; color: #40465A; white-space: pre-wrap; }
+.row { display: flex; gap: 20rpx; margin-top: 20rpx; }
+.f1 { flex: 1; }
+.option { font-size: 29rpx; }
+.option.ok  { background: #E9F7EF; border: 2rpx solid #34A853; color: #1E7B3C; }
+.option.bad { background: #FDECEA; border: 2rpx solid #D93025; color: #B3261E; }
+.blank-text { margin-top: 18rpx; padding: 22rpx; background: #F7F8FC; border-radius: 14rpx; font-size: 28rpx; line-height: 1.75; color: #40465A; white-space: pre-wrap; }
+.input-line { padding: 20rpx; background: #F7F8FC; border-radius: 14rpx; font-size: 28rpx; }
+.input-area { width: 100%; min-height: 200rpx; margin-top: 18rpx; padding: 20rpx; box-sizing: border-box; background: #F7F8FC; border-radius: 14rpx; font-size: 27rpx; line-height: 1.7; }
+.ph { color: #B4BAC8; }
+.mt { margin-top: 22rpx; }
+.mt-s { margin-top: 14rpx; }
+
+.result { text-align: center; }
+.verdict { font-size: 32rpx; font-weight: 700; margin-bottom: 12rpx; }
+.verdict.right { color: #1E7B3C; }
+.verdict.wrong { color: #B3261E; }
+.answer-box { margin-top: 16rpx; padding: 18rpx; background: #F7F8FC; border-radius: 12rpx; font-size: 25rpx; line-height: 1.7; color: #4A5062; text-align: left; }
+
+.finish { text-align: center; }
+.f-title { font-size: 34rpx; font-weight: 700; }
+.score { font-size: 64rpx; font-weight: 700; color: #5B4BD6; margin: 14rpx 0 6rpx; }
+.f-rate { font-size: 26rpx; color: #8A90A0; margin-bottom: 16rpx; }
+
+/* ---------- AI 语义判分 ---------- */
+.ai-badge {
+  display: inline-block; margin-bottom: 12rpx;
+  font-size: 21rpx; font-weight: 700; color: var(--brand);
+  background: var(--brand-soft); border-radius: 999rpx; padding: 5rpx 18rpx;
+}
+.ai-comment {
+  margin-top: 14rpx; font-size: 25rpx; line-height: 1.7; color: #3A4256;
+  background: #F6F8FD; border-left: 6rpx solid var(--brand);
+  border-radius: 0 12rpx 12rpx 0; padding: 16rpx 20rpx;
+}
+.ai-missed {
+  margin-top: 12rpx; font-size: 23rpx; line-height: 1.65; color: #B4690E;
+  background: #FFF4E8; border-radius: 12rpx; padding: 14rpx 18rpx;
+}
+.btn-primary.busy { opacity: .75; }
+
+/* ==================== AI 提示（独立面板，要显眼） ==================== */
+.ai-panel { margin-bottom: 18rpx; }
+.btn-ai {
+  background-image: linear-gradient(135deg, #7C5BD9 0%, #5B6EF5 100%);
+  color: #FFF; border-radius: 44rpx; font-size: 29rpx; font-weight: 600;
+  line-height: 88rpx; text-align: center;
+  box-shadow: 0 8rpx 22rpx rgba(91,110,245,.30);
+  transition: opacity .12s, transform .12s;
+}
+.ai-panel-note {
+  font-size: 21rpx; color: #8A90A0; text-align: center;
+  margin-top: 12rpx; line-height: 1.6;
+}
+
+/* ==================== AI 错因诊断 ==================== */
+.ai-diag {
+  margin-top: 20rpx; border-radius: 14rpx; padding: 18rpx 20rpx;
+  background: linear-gradient(135deg, #F4F5FF 0%, #EEF0FF 100%);
+  border-left: 6rpx solid #5B6EF5;
+  animation: cardIn .28s ease both;
+}
+.ai-diag.loading {
+  display: flex; align-items: center;
+  font-size: 23rpx; color: #5B6EF5;
+}
+.ai-diag-dot {
+  width: 14rpx; height: 14rpx; border-radius: 50%; background: #5B6EF5;
+  margin-right: 14rpx; flex-shrink: 0;
+  animation: aiPulse 1s ease-in-out infinite;
+}
+@keyframes aiPulse { 0%,100% { opacity: .35; transform: scale(.8) } 50% { opacity: 1; transform: scale(1.15) } }
+.ai-diag-head { display: flex; align-items: center; flex-wrap: wrap; }
+.ai-diag-badge {
+  font-size: 20rpx; font-weight: 700; color: #FFF;
+  background: linear-gradient(135deg, #7C5BD9, #5B6EF5);
+  border-radius: 999rpx; padding: 4rpx 14rpx; margin-right: 12rpx;
+}
+.ai-diag-reason { font-size: 26rpx; font-weight: 700; color: #3A4256; }
+.ai-diag-fix { margin-top: 12rpx; font-size: 24rpx; color: #4A5266; line-height: 1.65; }

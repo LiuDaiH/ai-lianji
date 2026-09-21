@@ -1,0 +1,53 @@
+{
+  "description": "往复 —— 把 Obsidian 笔记变成会考你的卡片（2026 微信小程序开发大赛参赛作品）",
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
+  "libVersion": "3.15.1",
+  "appid": "wx62da614e4a37b9bc",
+  "projectname": "study-companion",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "coverView": true,
+    "nodeModules": false,
+    "packNpmManually": false,
+    "useCompilerPlugins": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "compileWorklet": false,
+    "uglifyFileName": true,
+    "uploadWithSourceMap": true,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "condition": false
+  },
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "docs"
+      },
+      {
+        "type": "folder",
+        "value": "tools"
+      },
+      {
+        "type": "folder",
+        "value": "ai-backup"
+      }
+    ],
+    "include": []
+  },
+  "editorSetting": {}
+}

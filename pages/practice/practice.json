@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "小测",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "cat-picker": "/components/cat-picker/cat-picker",
+    "coach": "/components/coach/coach"
+  },
+  "navigationBarBackgroundColor": "#7C5BD9",
+  "navigationBarTextStyle": "white"
+}

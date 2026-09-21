@@ -1,0 +1,241 @@
+/* ===== 本页主题色（覆盖 app.wxss 默认值） ===== */
+page {
+  --brand: #5C6470;
+  --brand-2: #98A0AE;
+  --brand-soft: #F2F4F9;
+  --brand-ghost: rgba(92, 100, 112, .10);
+  --brand-glow: rgba(92, 100, 112, .28);
+  --bg-1: #F7F8FB;
+  --bg-2: #F0F2F7;
+  --card-2: #FCFDFE;
+}
+
+
+/* ---------- 品牌头部 ---------- */
+.brand-card {
+  text-align: center; padding: 34rpx 30rpx 30rpx; margin-bottom: 20rpx;
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(circle at 15% 0%, var(--brand-soft) 0%, rgba(255,255,255,0) 62%),
+    linear-gradient(180deg, #FFFFFF 0%, var(--card-2) 100%);
+  box-shadow: 0 6rpx 24rpx var(--brand-ghost);
+  animation: cardIn .3s ease both;
+}
+.bc-logo {
+  width: 132rpx; height: 132rpx; border-radius: 34rpx;
+  box-shadow: 0 10rpx 26rpx var(--brand-glow);
+}
+.bc-name {
+  font-size: 46rpx; font-weight: 800; letter-spacing: 6rpx; margin-top: 20rpx;
+  background-image: linear-gradient(120deg, var(--brand), var(--brand-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.bc-tag { font-size: 25rpx; color: var(--brand); font-weight: 600; margin-top: 10rpx; }
+.bc-desc { font-size: 23rpx; color: #8A90A0; line-height: 1.72; margin-top: 14rpx; }
+.bc-ver {
+  display: inline-block; margin-top: 18rpx; padding: 4rpx 18rpx;
+  font-size: 20rpx; color: #9AA0AC; background: #F2F4F9; border-radius: 999rpx;
+}
+/* pages/help/help.wxss */
+
+/* ---------- 介绍卡 ---------- */
+.hero-card {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+  border-radius: 26rpx; padding: 26rpx 0 20rpx; margin-bottom: 24rpx;
+  box-shadow: 0 10rpx 30rpx var(--brand-glow);
+}
+.swiper { height: 560rpx; }
+swiper-item { display: flex; flex-direction: column; align-items: center; }
+
+.s-stage {
+  height: 250rpx; width: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.s-text { padding: 0 48rpx; text-align: center; }
+.s-tag {
+  display: inline-block; background: rgba(255,255,255,.22); color: #FFF;
+  font-size: 21rpx; padding: 4rpx 18rpx; border-radius: 18rpx; margin-bottom: 14rpx;
+}
+.s-title { font-size: 38rpx; font-weight: 700; color: #FFF; line-height: 1.35; }
+.s-desc { font-size: 25rpx; color: rgba(255,255,255,.88); line-height: 1.7; margin-top: 12rpx; }
+.s-index { margin-top: 16rpx; font-size: 20rpx; color: rgba(255,255,255,.6); }
+
+/* 场景 1：卡片堆 */
+.stack { position: relative; width: 300rpx; height: 190rpx; }
+.sc {
+  position: absolute; left: 50%; width: 260rpx; height: 140rpx;
+  background: rgba(255,255,255,.95); border-radius: 18rpx;
+  transform: translateX(-50%);
+  box-shadow: 0 8rpx 22rpx rgba(18,22,32,.18);
+}
+.sc3 { top: 40rpx; opacity: .45; animation: upIn .5s ease .05s both; }
+.sc2 { top: 20rpx; opacity: .72; animation: upIn .5s ease .16s both; }
+.sc1 { top: 0; animation: upIn .55s cubic-bezier(.2,.9,.3,1.3) .28s both; }
+.sc-line { height: 14rpx; border-radius: 7rpx; background: #DDE6FA; margin: 22rpx 0 0 24rpx; }
+.w70 { width: 150rpx; } .w45 { width: 96rpx; background: #C4D4F5; }
+@keyframes upIn { from { opacity: 0; transform: translateX(-50%) translateY(28rpx) } to { opacity: 1 } }
+
+/* 场景 2：粘贴→切卡 */
+.fake-input {
+  width: 320rpx; padding: 16rpx 22rpx; background: rgba(255,255,255,.92); border-radius: 14rpx;
+  font-size: 22rpx; color: #6B7280; line-height: 1.75;
+  animation: upIn .4s ease both;
+}
+.down-arrow { font-size: 30rpx; color: #FFF; margin: 8rpx 0; animation: bounceA 1s ease-in-out infinite; }
+@keyframes bounceA { 0%,100% { transform: translateY(0) } 50% { transform: translateY(7rpx) } }
+.tiny-row { display: flex; gap: 12rpx; }
+.tiny {
+  padding: 10rpx 18rpx; background: rgba(255,255,255,.95); color: var(--brand);
+  border-radius: 12rpx; font-size: 22rpx; font-weight: 600;
+  animation: popIn .42s cubic-bezier(.2,.9,.3,1.4) both;
+}
+.t1 { animation-delay: .06s } .t2 { animation-delay: .24s } .t3 { animation-delay: .42s }
+@keyframes popIn { from { opacity: 0; transform: scale(.7) } to { opacity: 1; transform: scale(1) } }
+
+/* 场景 3：题型 */
+.chips { display: flex; flex-wrap: wrap; gap: 14rpx; justify-content: center; padding: 0 40rpx; }
+.chip {
+  padding: 13rpx 24rpx; border-radius: 28rpx; font-size: 24rpx; font-weight: 600;
+  background: rgba(255,255,255,.95); color: var(--brand);
+  animation: popIn .42s cubic-bezier(.2,.9,.3,1.4) both;
+}
+.c1 { animation-delay: .05s }
+.c2 { animation-delay: .18s; color: #1E7B3C; }
+.c3 { animation-delay: .31s; color: #B7791F; }
+.c4 { animation-delay: .44s; color: #B3261E; }
+.c5 { animation-delay: .57s; color: #5B4BD6; }
+
+/* 场景 4：间隔伸缩 */
+.steps { display: flex; align-items: center; gap: 10rpx; }
+.stp {
+  padding: 14rpx 20rpx; background: rgba(255,255,255,.95); color: var(--brand);
+  border-radius: 14rpx; font-size: 23rpx; font-weight: 700;
+  animation: popIn .45s cubic-bezier(.2,.9,.3,1.4) both;
+}
+.s1 { animation-delay: .05s } .s2 { animation-delay: .25s }
+.s3 { animation-delay: .45s } .s4 { animation-delay: .65s }
+.arw { color: rgba(255,255,255,.7); font-size: 22rpx; animation: fadeSeq 2s ease-in-out infinite; }
+@keyframes fadeSeq { 0%,100% { opacity: .4 } 50% { opacity: 1 } }
+.s-note { margin-top: 18rpx; font-size: 22rpx; color: rgba(255,255,255,.8); }
+
+/* 场景 5：热力图 */
+.heat-demo { display: flex; flex-wrap: wrap; width: 336rpx; gap: 6rpx; justify-content: center; }
+.hc { width: 24rpx; height: 24rpx; border-radius: 6rpx; animation: popIn .3s ease both; }
+.hc.lv0 { background: rgba(255,255,255,.22) }
+.hc.lv1 { background: rgba(255,255,255,.45) }
+.hc.lv2 { background: rgba(255,255,255,.72) }
+.hc.lv3 { background: #FFF }
+
+/* 指示点 */
+.dots { display: flex; justify-content: center; gap: 12rpx; margin-top: 4rpx; }
+.dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: rgba(255,255,255,.4); transition: all .25s; }
+.dot.on { width: 28rpx; border-radius: 7rpx; background: #FFF; }
+
+/* ---------- 引导入口 ---------- */
+.tour-item { display: flex; align-items: center; padding: 22rpx 0; border-bottom: 1rpx solid #F1F3F8; }
+.tour-item:last-child { border-bottom: none; }
+.tour-icon { font-size: 36rpx; width: 56rpx; }
+.tour-body { flex: 1; }
+.tour-name { font-size: 29rpx; font-weight: 600; }
+.tour-go { font-size: 25rpx; color: var(--brand); }
+
+.mt { margin-top: 24rpx; }
+.mt-s { margin-top: 14rpx; }
+
+/* 介绍展示频率 */
+.opt {
+  display: flex; align-items: center; padding: 20rpx 0;
+  border-bottom: 1rpx solid #F1F3F8;
+}
+.opt:last-child { border-bottom: none; }
+.opt-radio {
+  width: 34rpx; height: 34rpx; border-radius: 50%; border: 3rpx solid #D5DAE5;
+  margin-right: 20rpx; flex-shrink: 0; transition: all .16s;
+}
+.opt.on .opt-radio { border-color: var(--brand); background: var(--brand);
+  box-shadow: inset 0 0 0 6rpx #FFF; }
+.opt-body { flex: 1; }
+.opt-label { font-size: 28rpx; font-weight: 600; }
+
+/* 开关 */
+.switch-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid #F1F3F8;
+}
+.switch-label { font-size: 28rpx; font-weight: 600; }
+.switch {
+  width: 92rpx; height: 52rpx; border-radius: 26rpx;
+  background: #DDE2EC; position: relative; transition: background .2s;
+}
+.switch.on { background: #34A853; }
+.knob {
+  position: absolute; top: 4rpx; left: 4rpx;
+  width: 44rpx; height: 44rpx; border-radius: 50%; background: #FFF;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,.18);
+  transition: left .2s cubic-bezier(.3,1.4,.5,1);
+}
+.switch.on .knob { left: 44rpx; }
+
+/* ---------- AI 能力卡 ---------- */
+.em { color: var(--brand); font-weight: 700; }
+.ai-state {
+  margin: 18rpx 0 4rpx; padding: 16rpx 20rpx; border-radius: 12rpx;
+  font-size: 23rpx; line-height: 1.65; background: #F5F7FC; color: #5B6478;
+}
+.ai-state.ai-ok   { background: #EAF9F2; color: #14804F; }
+.ai-state.ai-fail { background: #FFF4E8; color: #B4690E; }
+.ai-state.ai-saved{ background: var(--brand-soft); color: var(--brand); }
+.ai-state.ai-empty{ background: #F2F4F9; color: #6B7280; }
+
+.d-label { font-size: 24rpx; color: #8A90A0; margin: 22rpx 0 10rpx; }
+.d-input2 { background: #F7F8FC; border-radius: 14rpx; padding: 22rpx; font-size: 27rpx; }
+.ai-btns { display: flex; gap: 18rpx; margin-top: 26rpx; }
+.ai-help-link { text-align: center; font-size: 24rpx; color: var(--brand); margin-top: 20rpx; }
+.ai-note { display: block; margin-top: 18rpx; font-size: 21rpx; line-height: 1.7; }
+.btn-primary.busy { opacity: .75; }
+
+/* ==================== AI 能力卡（核心创新点 ①） ==================== */
+.ai-card {
+  background-image: linear-gradient(180deg, #FFFFFF 0%, #F4F5FF 100%);
+  border: 2rpx solid #E4E7FB;
+  box-shadow: 0 6rpx 24rpx rgba(91,110,245,.10);
+}
+.ai-title-row { display: flex; align-items: center; margin-bottom: 10rpx; }
+.ai-title { font-size: 34rpx; font-weight: 800; letter-spacing: -.3rpx;
+  background-image: linear-gradient(120deg, #7C5BD9, #5B6EF5);
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ai-tag {
+  margin-left: 14rpx; font-size: 19rpx; font-weight: 700; color: #FFF;
+  background-image: linear-gradient(135deg, #7C5BD9, #5B6EF5);
+  border-radius: 999rpx; padding: 4rpx 14rpx;
+}
+
+.feat-list { margin-top: 18rpx; }
+.feat { display: flex; padding: 14rpx 0; border-bottom: 1rpx solid #F1F3F8; }
+.feat:last-child { border-bottom: none; }
+.feat-dot {
+  width: 12rpx; height: 12rpx; border-radius: 50%; flex-shrink: 0;
+  background-image: linear-gradient(135deg, #7C5BD9, #5B6EF5);
+  margin: 14rpx 16rpx 0 2rpx;
+}
+.feat-body { flex: 1; min-width: 0; }
+.feat-head { display: flex; align-items: baseline; }
+.feat-name { font-size: 28rpx; font-weight: 700; color: #3A4256; }
+.feat-where { font-size: 20rpx; color: #9AA0AC; margin-left: 12rpx; }
+.feat-desc { font-size: 23rpx; color: #6B7280; line-height: 1.6; margin-top: 4rpx; }
+
+/* ---------- AI 开关 ---------- */
+.ai-toggle { display: flex; align-items: center; margin: 18rpx 0 4rpx; }
+.ai-toggle-sw {
+  width: 84rpx; height: 48rpx; border-radius: 999rpx; background: #D6DCE8;
+  position: relative; flex-shrink: 0; transition: background .2s ease;
+}
+.ai-toggle-sw.on { background-image: linear-gradient(135deg, #7C5BD9, #5B6EF5); }
+.ai-toggle-knob {
+  position: absolute; top: 4rpx; left: 4rpx; width: 40rpx; height: 40rpx;
+  border-radius: 50%; background: #FFF; box-shadow: 0 2rpx 6rpx rgba(0,0,0,.18);
+  transition: transform .2s cubic-bezier(.2,.9,.3,1.3);
+}
+.ai-toggle-sw.on .ai-toggle-knob { transform: translateX(36rpx); }
+.ai-toggle-text { margin-left: 18rpx; display: flex; flex-direction: column; }
+.ai-toggle-name { font-size: 28rpx; font-weight: 700; color: #3A4256; }

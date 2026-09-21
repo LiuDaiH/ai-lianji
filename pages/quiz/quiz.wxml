@@ -1,0 +1,154 @@
+<!-- pages/quiz/quiz.wxml -->
+<view class="container">
+
+  <view class="empty" wx:if="{{emptyTip}}">{{emptyTip}}</view>
+
+  <block wx:elif="{{!finished && current}}">
+
+    <!-- 顶部：题型 + 进度 + 撤销 -->
+    <view class="bar">
+      <view class="tag">{{typeLabel}}{{isRetry ? ' · 重练' : ''}}</view>
+      <text class="subtle prog">{{idx + 1}} / {{quiz.length}} · 答对 {{rightCount}}</text>
+      <view class="undo {{canUndo ? '' : 'off'}}" bindtap="onUndo">↩ 撤销</view>
+    </view>
+
+    <!-- ===== flip ===== -->
+    <block wx:if="{{current.type === 'flip'}}">
+      <view class="card">
+        <view class="qtip subtle">先自己回忆，再翻面核对</view>
+        <view class="flip-title">{{current.stem}}</view>
+        <view class="hint-box" wx:if="{{hintText}}">{{hintText}}</view>
+        <view class="revealed" wx:if="{{showAnswer}}">{{current.content || '（这张卡没有填内容，建议去详情页补充）'}}</view>
+      </view>
+
+      <block wx:if="{{!showAnswer}}">
+        <!-- AI 提示独立成行：这是主动回忆的"扶一下"，不是代答 -->
+        <view class="ai-panel" wx:if="{{aiOn}}">
+          <view hover-class="hover-dim" class="btn-ai" bindtap="onAiHint">
+            {{aiHinting ? '🤖 AI 正在想怎么提示你…' : '🤖 卡住了？让 AI 给个方向'}}
+          </view>
+          <view class="ai-panel-note">只给方向，不会把答案说出来 —— 想起来这件事必须你自己做</view>
+        </view>
+
+        <view class="row">
+          <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onHint"
+                wx:if="{{current.hints.length > hintUsed}}">本地提示 {{hintUsed}}/{{current.hints.length}}</view>
+          <view hover-class="hover-dim" class="btn-primary f1" bindtap="onReveal">看答案</view>
+        </view>
+      </block>
+
+      <view class="row" wx:else>
+        <view hover-class="hover-dim" class="btn-ghost f1" data-ok="false" bindtap="onFlipJudge">没想起来</view>
+        <view hover-class="hover-dim" class="btn-primary f1" data-ok="true" bindtap="onFlipJudge">想起来了</view>
+      </view>
+    </block>
+
+    <!-- ===== choice ===== -->
+    <block wx:elif="{{current.type === 'choice'}}">
+      <view class="card">
+        <view class="qtip subtle">下面这段说的是哪个知识点？</view>
+        <view class="stem">{{current.stem}}</view>
+      </view>
+      <view class="card option {{submitted && item === current.answer ? 'ok' : ''}} {{submitted && item === picked && !isRight ? 'bad' : ''}}"
+            wx:for="{{current.options}}" wx:key="*this" data-val="{{item}}" bindtap="onChoose">{{item}}</view>
+    </block>
+
+    <!-- ===== judge ===== -->
+    <block wx:elif="{{current.type === 'judge'}}">
+      <view class="card">
+        <view class="qtip subtle">这组「知识点 → 内容」配对正确吗？</view>
+        <view class="flip-title">{{current.stem}}</view>
+        <view class="revealed">{{current.text}}</view>
+      </view>
+      <view class="row">
+        <view class="card option f1 {{submitted && current.answer === false ? 'ok' : ''}} {{submitted && picked === 'false' && !isRight ? 'bad' : ''}}"
+              data-val="false" bindtap="onJudge">配对错了</view>
+        <view class="card option f1 {{submitted && current.answer === true ? 'ok' : ''}} {{submitted && picked === 'true' && !isRight ? 'bad' : ''}}"
+              data-val="true" bindtap="onJudge">配对正确</view>
+      </view>
+    </block>
+
+    <!-- ===== blank ===== -->
+    <block wx:elif="{{current.type === 'blank'}}">
+      <view class="card">
+        <view class="qtip subtle">把空补上</view>
+        <view class="flip-title">{{current.stem}}</view>
+        <view class="blank-text">{{current.text}}</view>
+      </view>
+      <view class="card">
+        <input class="input-line" value="{{blankInput}}" bindinput="onBlankInput"
+               placeholder="填入缺失的词" placeholder-class="ph" disabled="{{submitted}}" />
+        <view hover-class="hover-dim" class="btn-primary mt" bindtap="onBlankSubmit" wx:if="{{!submitted}}">提交</view>
+      </view>
+    </block>
+
+    <!-- ===== recall ===== -->
+    <block wx:else>
+      <view class="card">
+        <view class="qtip subtle">
+          把这个知识点写出来{{aiOn ? '（AI 会按语义判分，换个说法说对了也算对）' : '（命中关键词越多越好）'}}
+        </view>
+        <view class="flip-title">{{current.stem}}</view>
+        <textarea class="input-area" value="{{recallInput}}" bindinput="onRecallInput"
+                  placeholder="凭记忆写…" placeholder-class="ph" auto-height disabled="{{submitted || grading}}" />
+        <view hover-class="hover-dim" class="btn-primary mt {{grading ? 'busy' : ''}}"
+              bindtap="onRecallSubmit" wx:if="{{!submitted}}">
+          {{grading ? 'AI 判分中…' : '提交'}}
+        </view>
+      </view>
+    </block>
+
+    <!-- 判分 -->
+    <view class="card result" wx:if="{{submitted}}">
+      <view class="verdict {{isRight ? 'right' : 'wrong'}}">{{isRight ? '答对了' : '答错了'}}</view>
+
+      <!-- 答错时：AI 错因诊断（不阻塞，回来了才上屏） -->
+      <view class="ai-diag loading" wx:if="{{aiDiagLoading}}">
+        <view class="ai-diag-dot"></view>🤖 AI 正在分析你错在哪…
+      </view>
+      <view class="ai-diag" wx:elif="{{aiDiag}}">
+        <view class="ai-diag-head">
+          <text class="ai-diag-badge">🤖 错因诊断</text>
+          <text class="ai-diag-reason">{{aiDiag.reason}}</text>
+        </view>
+        <view class="ai-diag-fix" wx:if="{{aiDiag.fix}}">怎么补：{{aiDiag.fix}}</view>
+      </view>
+      <block wx:if="{{current.type === 'recall'}}">
+        <view class="ai-badge" wx:if="{{aiUsed}}">🤖 AI 语义判分</view>
+        <view class="subtle">命中关键词 {{recallHit}} / {{recallTotal}}</view>
+        <view class="ai-comment" wx:if="{{aiComment}}">「{{aiComment}}」</view>
+        <view class="ai-missed" wx:if="{{aiMissed}}">漏掉/答错：{{aiMissed}}</view>
+        <view class="answer-box">参考内容：{{current.answer}}</view>
+      </block>
+      <block wx:elif="{{current.type === 'judge'}}">
+        <view class="subtle">这组配对{{current.answer ? '是正确的' : '是错误的'}}</view>
+      </block>
+      <block wx:elif="{{current.type !== 'flip'}}">
+        <view class="answer-box">正确答案：{{current.answer}}</view>
+      </block>
+
+      <view class="row mt">
+        <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onUndo">↩ 撤销这题</view>
+        <view hover-class="hover-dim" class="btn-primary f1" bindtap="onNext">
+          {{idx + 1 >= quiz.length ? '看结果' : '下一题'}}
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 结束 -->
+  <view class="card finish" wx:else>
+    <view class="f-title">{{isRetry ? '重练完成' : '本轮完成'}}</view>
+    <view class="score">{{rightCount}} / {{quiz.length}}</view>
+    <view class="f-rate">正确率 {{quiz.length ? rightCount * 100 / quiz.length : 0}}%</view>
+    <view class="subtle">范围：{{rangeText}}</view>
+    <view class="subtle mt-s">答对的卡片间隔已拉长，答错的已提前安排复习</view>
+
+    <view hover-class="hover-dim" class="btn-primary mt" wx:if="{{wrongList.length > 0}}" bindtap="onRetryWrong">
+      立刻重练错的 {{wrongList.length}} 张
+    </view>
+    <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onBackPractice">再练一轮</view>
+    <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onBackHome">回到卡片列表</view>
+  </view>
+
+</view>

@@ -1,0 +1,82 @@
+<!-- pages/practice/practice.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
+<view class="container">
+
+  <view class="hero">
+    <view class="hero-title">来一轮小测</view>
+    <view class="hero-sub">范围、题型、题量都由你定 —— 答完会自动排下次复习时间</view>
+  </view>
+
+  <view class="cat-bar" id="pcat" bindtap="onOpenPicker" hover-class="hover-dim">
+    <view class="cat-bar-label">范围</view>
+    <view class="cat-bar-value">{{rangeText}}</view>
+    <view class="cat-bar-go">切换 ›</view>
+  </view>
+
+  <!-- ===== 题型（可多选） ===== -->
+  <view class="card" id="mode-card">
+    <view class="row-between">
+      <view class="title">考哪些题型</view>
+      <view class="link" bindtap="onSelectAllModes" hover-class="hover-dim">全选</view>
+    </view>
+    <view class="subtle">灰掉的表示当前范围内的卡片暂时出不了这种题</view>
+
+    <view class="modes">
+      <view class="mode {{item.on ? 'on' : ''}} {{item.available ? '' : 'off'}}"
+            wx:for="{{modeOptions}}" wx:key="key"
+            data-key="{{item.key}}" bindtap="onToggleMode" hover-class="hover-dim">
+        <view class="mode-check">{{item.on ? '✓' : ''}}</view>
+        <view class="mode-body">
+          <view class="mode-name">{{item.name}}</view>
+          <view class="mode-desc">{{item.desc}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 题量 ===== -->
+  <view class="card">
+    <view class="title" id="psize">练几题</view>
+    <view class="sizes">
+      <view class="size {{index === activeSize ? 'on' : ''}}"
+            wx:for="{{sizes}}" wx:key="label" data-idx="{{index}}" bindtap="onPickSize"
+            hover-class="hover-dim">{{item.label}}</view>
+    </view>
+    <view class="subtle info">
+      当前可出题 <text class="num">{{available}}</text> 道
+      <text wx:if="{{dueCount > 0}}"> · <text class="hot">{{dueCount}}</text> 张已到复习期</text>
+    </view>
+    <view class="btn-primary start" id="pstart" bindtap="onStart" hover-class="hover-dim">开始小测</view>
+    <view class="btn-ghost mt-s" bindtap="goCapture" hover-class="hover-dim" wx:if="{{available === 0}}">
+      去补充一些有内容的卡片
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{totalRounds > 0}}">
+    <view class="kpis">
+      <view class="kpi"><view class="kpi-num">{{totalRounds}}</view><view class="subtle">已练轮数</view></view>
+      <view class="kpi"><view class="kpi-num">{{avgRate}}%</view><view class="subtle">平均正确率</view></view>
+      <view class="kpi"><view class="kpi-num">{{bestRate}}%</view><view class="subtle">最好成绩</view></view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{history.length > 0}}">
+    <view class="title">最近成绩</view>
+    <view class="h-item" wx:for="{{history}}" wx:key="id">
+      <view class="h-day">{{item.day}}</view>
+      <view class="h-scope">{{item.scope}}</view>
+      <view class="h-bar"><view class="h-fill {{item.rate >= 80 ? 'good' : (item.rate >= 60 ? 'mid' : 'low')}}"
+                                style="width:{{item.rate}}%"></view></view>
+      <view class="h-rate">{{item.right}}/{{item.total}}</view>
+    </view>
+  </view>
+
+  <cat-picker show="{{showPicker}}" active="{{activeCat}}"
+              bind:pick="onPickCat" bind:change="onCatChange" />
+
+
+  <coach id="coach" flow="{{tourFlow}}" active="{{tourActive}}"
+         bind:close="onTourClose" bind:lock="onTourLock" />
+
+</view>

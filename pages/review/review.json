@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "今日复习",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "coach": "/components/coach/coach",
+    "cat-picker": "/components/cat-picker/cat-picker"
+  },
+  "navigationBarBackgroundColor": "#0E9E9E",
+  "navigationBarTextStyle": "white"
+}

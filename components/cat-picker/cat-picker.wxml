@@ -1,0 +1,140 @@
+<!-- components/cat-picker/cat-picker.wxml -->
+<view class="cp-mask {{visible ? 'on' : ''}}" wx:if="{{visible}}" catchtouchmove="noop" bindtap="onClose">
+  <view class="cp-sheet" catchtap="noop">
+
+    <!-- ============ 头部 ============ -->
+    <view class="cp-bar"></view>
+    <view class="cp-head">
+      <view class="cp-title">
+        {{parentPicking ? '选父类别' : (mode === 'parent' ? '选父类别' : '选择范围')}}
+      </view>
+      <view class="cp-close" bindtap="onHeadAction">
+        {{parentPicking ? '返回' : '✕'}}
+      </view>
+    </view>
+    <view class="cp-current" wx:if="{{!parentPicking}}">当前：{{activeName}}</view>
+    <view class="cp-current pick" wx:else>点哪个节点，新类别就挂在它下面</view>
+
+    <!-- ============ 快捷项 ============ -->
+    <view class="cp-quick" wx:if="{{!parentPicking}}">
+      <view class="cp-chip {{active === 'all' ? 'on' : ''}}" bindtap="onPickAll">全部卡片</view>
+      <view class="cp-chip {{active === '__none__' ? 'on' : ''}}" bindtap="onPickNone">未分类 {{noneCount}}</view>
+      <view class="cp-chip ghost" bindtap="onAddRoot">＋ 新建顶层</view>
+    </view>
+    <view class="cp-quick" wx:else>
+      <view class="cp-chip" bindtap="onParentPickClear">放回顶层</view>
+    </view>
+
+    <!-- ============ 搜索 ============ -->
+    <view class="cp-search" wx:if="{{!parentPicking}}">
+      <text class="cp-si">🔍</text>
+      <input class="cp-input" value="{{keyword}}" bindinput="onSearch"
+             placeholder="搜索类别" placeholder-class="cp-ph" confirm-type="search" />
+      <view class="cp-clear" wx:if="{{keyword}}" bindtap="onClearSearch">×</view>
+    </view>
+
+    <!-- ============ 搜索结果 ============ -->
+    <scroll-view scroll-y class="cp-body" wx:if="{{results.length > 0}}">
+      <view class="cp-res" wx:for="{{results}}" wx:key="id" data-id="{{item.id}}" bindtap="onLocate"
+            hover-class="hover-dim">
+        <view class="cp-res-n">{{item.name}}</view>
+        <view class="cp-res-p">{{item.path}}</view>
+        <view class="cp-res-go">定位 ›</view>
+      </view>
+    </scroll-view>
+
+    <block wx:else>
+      <!-- ============ 视图切换 ============ -->
+      <view class="cp-views">
+        <view class="cp-view {{view === 'graph' ? 'on' : ''}}" data-v="graph" bindtap="onSwitchView">🌐 发散图</view>
+        <view class="cp-view {{view === 'list' ? 'on' : ''}}" data-v="list" bindtap="onSwitchView">☰ 列表</view>
+      </view>
+
+      <!-- ============ 发散图 ============ -->
+      <block wx:if="{{view === 'graph'}}">
+        <view class="cp-dense" wx:if="{{dense}}">
+          节点较多，发散图会偏密 —— 可以切到「列表」精确操作
+        </view>
+
+        <view class="cp-graph-box" style="height:{{graphH}}px">
+          <scroll-view scroll-x scroll-y class="cp-graph"
+                       scroll-left="{{scrollLeft}}" scroll-top="{{scrollTop}}">
+            <view class="cp-canvas" style="width:{{gW}}px;height:{{gH}}px">
+
+              <!-- 连线 -->
+              <view class="cp-edge" wx:for="{{gEdges}}" wx:key="id"
+                    style="left:{{item.x1}}px;top:{{item.y1}}px;width:{{item.len}}px;transform:rotate({{item.rot}}deg)"></view>
+
+              <!-- 节点 -->
+              <view class="cp-node n-{{item.tier}} {{item.isCenter ? 'center' : ''}} {{item.id === active ? 'sel' : ''}}"
+                    wx:for="{{gNodes}}" wx:key="id"
+                    style="left:{{item.x}}px;top:{{item.y}}px"
+                    data-id="{{item.id}}" bindtap="onPick" bindlongpress="onNodeHold"
+                    hover-class="cp-node-hover">
+                <view class="cp-nname">{{item.name}}</view>
+                <view class="cp-ncnt" wx:if="{{!item.isCenter}}">{{item.count}}</view>
+              </view>
+
+            </view>
+          </scroll-view>
+        </view>
+
+        <view class="cp-tip">
+          点节点 = <text class="em">{{parentPicking ? '挂到它下面' : '选中'}}</text>
+          · 长按 = 加子类 / 改名 / 删除 · 可拖动查看
+        </view>
+      </block>
+
+      <!-- ============ 列表 ============ -->
+      <scroll-view wx:else scroll-y class="cp-body cp-list" scroll-into-view="{{scrollIntoView}}">
+        <view class="empty-list" wx:if="{{tree.length === 0}}">还没有类别</view>
+
+        <view class="cp-row" wx:for="{{tree}}" wx:key="id" id="cat-{{item.id}}">
+          <view class="cp-ind" wx:for="{{item.indent}}" wx:for-item="hasLine" wx:key="index">
+            <view class="cp-v" wx:if="{{hasLine}}"></view>
+          </view>
+          <view class="cp-ind">
+            <view class="cp-v half" wx:if="{{!item.isLast}}"></view>
+            <view class="cp-h"></view>
+          </view>
+          <view class="cp-dot d{{item.depth}} {{item.hasChildren ? '' : 'leaf'}}"></view>
+
+          <view class="cp-rowbody t-{{item.tier}}" data-id="{{item.id}}" bindtap="onPick"
+                hover-class="hover-dim">
+            <view class="cp-fold" wx:if="{{item.hasChildren}}" data-id="{{item.id}}" catchtap="onToggle">
+              {{item.expanded ? '▾' : '▸'}}
+            </view>
+            <view class="cp-name">{{item.name}}</view>
+            <view class="cp-cnt">{{item.count}}</view>
+            <view class="cp-more" data-id="{{item.id}}" catchtap="onMore">⋯</view>
+          </view>
+        </view>
+      </scroll-view>
+    </block>
+
+    <!-- ============ 新建 / 改名 弹窗 ============ -->
+    <view class="cp-dlg-mask" wx:if="{{editing && !parentPicking}}" catchtouchmove="noop">
+      <view class="cp-dlg">
+        <view class="cp-dlg-t">{{editorTitle}}</view>
+
+        <view class="cp-lbl">类别名称</view>
+        <input class="cp-editor-input" value="{{editorName}}" bindinput="onEditorName"
+               placeholder="例如：Python、算法、第三章" placeholder-class="cp-ph" focus />
+
+        <block wx:if="{{editorMode === 'add'}}">
+          <view class="cp-lbl">挂在哪个类别下</view>
+          <view class="cp-parent-row" bindtap="onOpenParentPick" hover-class="hover-dim">
+            <view class="cp-parent-text">{{editorParentText}}</view>
+            <view class="cp-parent-go">用发散图选 ›</view>
+          </view>
+        </block>
+
+        <view class="cp-ops">
+          <view class="btn-ghost f1" bindtap="onEditorCancel" hover-class="hover-dim">取消</view>
+          <view class="btn-primary f1" bindtap="onEditorConfirm" hover-class="hover-dim">确定</view>
+        </view>
+      </view>
+    </view>
+
+  </view>
+</view>

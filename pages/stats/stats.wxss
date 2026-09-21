@@ -1,0 +1,148 @@
+/* ===== 本页主题色（覆盖 app.wxss 默认值） ===== */
+page {
+  --brand: #E07B0A;
+  --brand-2: #FBBF24;
+  --brand-soft: #FFF3E4;
+  --brand-ghost: rgba(224, 123, 10, .10);
+  --brand-glow: rgba(224, 123, 10, .28);
+  --bg-1: #FFFAF3;
+  --bg-2: #FDF2E5;
+  --card-2: #FFFDFA;
+}
+
+/* pages/stats/stats.wxss */
+.cat-bar { display: flex; align-items: center;
+  background: linear-gradient(135deg, #FFFFFF 0%, var(--brand-soft) 100%); border-radius: 999rpx;
+  padding: 18rpx 22rpx 18rpx 26rpx; margin-bottom: 20rpx; box-shadow: 0 4rpx 18rpx rgba(31,36,48,.06); }
+.cat-bar-label { font-size: 23rpx; color: #9AA0AC; margin-right: 14rpx; }
+.cat-bar-value { flex: 1; font-size: 29rpx; font-weight: 600; color: var(--brand);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cat-bar-go { font-size: 25rpx; color: var(--brand); flex-shrink: 0; }
+
+/* ---------- KPI 四宫格 ---------- */
+.kpis { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.kpi {
+  width: calc(50% - 8rpx); box-sizing: border-box;
+  padding: 22rpx 20rpx; border-radius: 18rpx; text-align: left;
+  background: #F7F9FD; border: 2rpx solid #EEF1F8;
+}
+.kpi:nth-child(1) { background: var(--brand-soft); border-color: var(--brand-soft); }
+.kpi:nth-child(2) { background: #FFEDEE; border-color: #FFDCDD; }
+.kpi:nth-child(3) { background: #FFF3E4; border-color: #FFE6CC; }
+.kpi:nth-child(4) { background: #E7F7F0; border-color: #D3F0E4; }
+.kpi-num { font-size: 44rpx; font-weight: 800; line-height: 1.25; color: var(--brand);
+           font-variant-numeric: tabular-nums; animation: tick .5s cubic-bezier(.2,.9,.3,1.4) both; }
+.kpi:nth-child(2) .kpi-num { color: #FF5A5F; }
+.kpi:nth-child(3) .kpi-num { color: #F0851F; }
+.kpi:nth-child(4) .kpi-num { color: #22B573; }
+
+/* ---------- 学习热力图（可读版） ---------- */
+.heat-box {
+  margin-top: 22rpx; padding: 18rpx 20rpx 14rpx;
+  background: #FAFBFE; border-radius: 16rpx;
+}
+.heat-months { position: relative; height: 26rpx; margin-left: 34rpx; }
+.heat-month {
+  position: absolute; top: 0; font-size: 20rpx; color: #9AA0AC; white-space: nowrap;
+}
+
+.heat-body { position: relative; display: flex; margin-top: 6rpx; }
+.heat-days { position: relative; width: 34rpx; flex-shrink: 0; }
+.heat-day {
+  position: absolute; left: 0; font-size: 20rpx; color: #9AA0AC;
+  line-height: 26rpx; height: 26rpx;
+}
+
+.heat { display: flex; gap: 8rpx; }
+.heat-col { display: flex; flex-direction: column; gap: 8rpx; }
+.heat-cell {
+  width: 26rpx; height: 26rpx; border-radius: 7rpx; box-sizing: border-box;
+  transition: transform .12s ease;
+}
+.lv0 { background: #EEF0F6; }
+.lv1 { background: #BBD0FA; }
+.lv2 { background: #6C8FF7; }
+.lv3 { background: linear-gradient(135deg, #6C8FF7, #3B6FF5); }
+/* 还没到的日子：虚线空框，和"学习了但没记录"彻底区分开 */
+.lv-1 { background: transparent; border: 2rpx dashed #DFE4EE; }
+
+/* 今天：加一圈主题色描边 */
+.heat-cell.today { box-shadow: 0 0 0 3rpx var(--brand); }
+/* 选中的那一格：橙色描边 + 放大一点 */
+.heat-cell.picked { box-shadow: 0 0 0 3rpx #F0851F; transform: scale(1.16); }
+
+/* 点击后的读数 */
+.heat-read {
+  margin-top: 16rpx; text-align: center; font-size: 25rpx; color: #4A5266;
+  background: #F5F7FC; border-radius: 12rpx; padding: 14rpx 18rpx;
+}
+.heat-read.idle { color: #9AA0AC; font-size: 23rpx; background: transparent; }
+.hr-date { font-weight: 700; margin-right: 12rpx; color: #3A4256; }
+.hr-val { color: var(--brand); font-weight: 600; }
+.hr-val.none { color: #9AA0AC; font-weight: 400; }
+
+/* 图例：给出具体数值 */
+.heat-legend { display: flex; gap: 22rpx; margin-top: 16rpx; flex-wrap: wrap; }
+.hl-item { display: flex; align-items: center; font-size: 21rpx; color: #8A90A0; }
+.hl-item .heat-cell { width: 22rpx; height: 22rpx; border-radius: 6rpx; margin-right: 8rpx; }
+
+/* 一句话总结 */
+.heat-sum {
+  margin-top: 18rpx; padding-top: 16rpx; border-top: 1rpx solid #F1F3F8;
+  font-size: 24rpx; color: #6B7280; line-height: 1.7;
+}
+.hs-n { font-weight: 800; color: var(--brand); font-size: 28rpx; }
+
+/* ---------- 难点榜 ---------- */
+.hard-item { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 0; border-bottom: 1rpx solid #F1F3F8; }
+.hard-item:last-child { border-bottom: none; }
+.hard-left { flex: 1; margin-right: 20rpx; min-width: 0; }
+.hard-title { font-size: 28rpx; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hard-bar { width: 140rpx; height: 14rpx; background: #F1F3F8; border-radius: 999rpx; overflow: hidden; }
+.hard-fill {
+  height: 100%; border-radius: 999rpx; background: linear-gradient(90deg,#FF8A8E,#FF5A5F);
+  animation: grow .6s cubic-bezier(.2,.9,.3,1) both; transform-origin: left center;
+}
+
+.mt { margin-top: 24rpx; }
+.mt-s { margin-top: 14rpx; }
+
+/* 引导入口 */
+.tour-item { display: flex; align-items: center; padding: 22rpx 0; border-bottom: 1rpx solid #F1F3F8; }
+.tour-item:last-child { border-bottom: none; }
+.tour-icon { font-size: 36rpx; width: 56rpx; }
+.tour-body { flex: 1; }
+.tour-name { font-size: 29rpx; font-weight: 600; }
+.tour-go { font-size: 25rpx; color: var(--brand); }
+
+/* ==================== AI 学习诊断 ==================== */
+.btn-ai {
+  background-image: linear-gradient(135deg, #7C5BD9 0%, #5B6EF5 100%);
+  color: #FFF; border-radius: 44rpx; font-size: 29rpx; font-weight: 600;
+  line-height: 88rpx; text-align: center;
+  box-shadow: 0 8rpx 22rpx rgba(91,110,245,.30);
+  transition: opacity .12s, transform .12s;
+}
+.advice-box {
+  margin-top: 18rpx; border-radius: 14rpx; padding: 20rpx 22rpx;
+  background-image: linear-gradient(135deg, #F4F5FF 0%, #EEF0FF 100%);
+  border-left: 6rpx solid #5B6EF5;
+  animation: cardIn .28s ease both;
+}
+.advice-box.loading {
+  display: flex; align-items: center;
+  font-size: 23rpx; color: #5B6EF5;
+}
+.advice-dot {
+  width: 14rpx; height: 14rpx; border-radius: 50%; background: #5B6EF5;
+  margin-right: 14rpx; flex-shrink: 0;
+  animation: aiPulse 1s ease-in-out infinite;
+}
+@keyframes aiPulse { 0%,100% { opacity: .35; transform: scale(.8) } 50% { opacity: 1; transform: scale(1.15) } }
+.advice-badge {
+  display: inline-block; font-size: 20rpx; font-weight: 700; color: #FFF;
+  background-image: linear-gradient(135deg, #7C5BD9, #5B6EF5);
+  border-radius: 999rpx; padding: 4rpx 14rpx; margin-bottom: 12rpx;
+}
+.advice-text { font-size: 26rpx; color: #3A4256; line-height: 1.75; }
+.advice-note { display: block; margin-top: 12rpx; text-align: center; font-size: 21rpx; }

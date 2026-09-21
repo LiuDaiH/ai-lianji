@@ -1,0 +1,138 @@
+<!-- components/intro/intro.wxml -->
+<view class="intro-mask" wx:if="{{visible}}" catchtouchmove="noop">
+  <!-- 背景：5 层叠在一起，只有当前屏那层 opacity=1，切屏时真正交叉淡入。
+       ⚠️ 这里必须用 item —— wx:for 的默认索引变量叫 index，不叫 i，
+          写成 {{i}} 会解析成空字符串，结果 5 层全 opacity:0，整个介绍就透明了。 -->
+  <view class="intro-bg bg{{item}} {{item === slide ? 'on' : ''}}"
+        wx:for="{{[0, 1, 2, 3, 4, 5]}}" wx:key="*this"></view>
+  <view class="intro-bg bg-glow"></view>
+
+  <view class="intro-top">
+    <view class="intro-brand">
+      <image class="ib-logo" src="{{brand.LOGO}}" mode="aspectFit" />
+      <text class="ib-name">{{brand.NAME}}</text>
+    </view>
+    <view class="intro-skip" bindtap="onSkip" hover-class="hover-dim">
+      {{slide === slides.length - 1 ? '' : '跳过'}}
+    </view>
+  </view>
+
+  <view class="intro-body">
+    <swiper class="swiper" circular="{{false}}" duration="400" current="{{slide}}" bindchange="onSwiper">
+      <swiper-item wx:for="{{slides}}" wx:key="tag">
+
+        <!-- 1 卡片堆 -->
+        <view class="s-stage" wx:if="{{index === 0}}">
+          <view class="stack">
+            <view class="sc sc3"></view>
+            <view class="sc sc2"></view>
+            <view class="sc sc1">
+              <view class="sc-line w70"></view>
+              <view class="sc-line w45"></view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 2 核心创新点 ①：AI 学习引擎 -->
+        <view class="s-stage" wx:elif="{{index === 1}}">
+          <view class="ai-flow">
+            <view class="aif-box mess">乱格式讲义</view>
+            <view class="aif-arrow">›</view>
+            <view class="aif-core {{aiOn ? '' : 'two'}}">{{introCore}}</view>
+            <view class="aif-arrow">›</view>
+            <view class="aif-box clean">结构化卡片</view>
+          </view>
+          <view class="ai-chips">
+            <view class="ai-chip" wx:for="{{introChips}}" wx:key="*this">{{item}}</view>
+          </view>
+          <view class="ai-boundary">{{introBoundary}}</view>
+        </view>
+
+        <!-- 3 核心创新点 ②：Obsidian 双向同步 -->
+        <view class="s-stage" wx:elif="{{index === 2}}">
+          <view class="ob-loop">
+            <view class="ob-box">
+              <view class="ob-ico">📁</view>
+              <view class="ob-name">vault</view>
+            </view>
+            <view class="ob-arrows">
+              <view class="ob-a fwd"><text>.md</text></view>
+              <view class="ob-a back"><text>掌握度</text></view>
+            </view>
+            <view class="ob-box hot">
+              <view class="ob-ico">📇</view>
+              <view class="ob-name">卡片</view>
+            </view>
+          </view>
+
+          <view class="ob-demo">
+            <view class="od-h">## 梯度下降与学习率</view>
+            <view class="od-c">
+              <text class="od-tag">[!success]</text> 掌握度 82% · 复习 5 次
+            </view>
+          </view>
+        </view>
+
+        <!-- 4 导入 → 切卡 -->
+        <view class="s-stage" wx:elif="{{index === 3}}">
+          <view class="fake-input"># 机器学习<br/>## 梯度下降<br/>- 偏导数方向<br/>- 学习率步长</view>
+          <view class="down-arrow">↓</view>
+          <view class="tiny-row">
+            <view class="tiny t1">梯度下降</view>
+            <view class="tiny t2">偏导数</view>
+            <view class="tiny t3">学习率</view>
+          </view>
+        </view>
+
+        <!-- 5 题型 -->
+        <view class="s-stage" wx:elif="{{index === 4}}">
+          <view class="chips">
+            <view class="chip c1">翻转</view>
+            <view class="chip c2">选择</view>
+            <view class="chip c3">判断</view>
+            <view class="chip c4">填空</view>
+            <view class="chip c5">默写</view>
+          </view>
+        </view>
+
+        <!-- 6 发散图 + 掌握度 -->
+        <view class="s-stage" wx:else>
+          <view class="mrad">
+            <view class="mr-core">全部</view>
+            <view class="mr-ring r1">
+              <view class="mr-n g"></view><view class="mr-n b"></view>
+              <view class="mr-n o"></view><view class="mr-n g"></view>
+            </view>
+            <view class="mr-ring r2">
+              <view class="mr-n b"></view><view class="mr-n g"></view>
+              <view class="mr-n g"></view><view class="mr-n o"></view>
+              <view class="mr-n b"></view><view class="mr-n g"></view>
+            </view>
+          </view>
+        </view>
+
+        <view class="s-text {{slide === index ? 'anim' : ''}}">
+          <view class="s-tag {{item.hot ? 'hot' : ''}}">{{item.tag}}</view>
+          <view class="s-title">{{item.title}}</view>
+          <view class="s-desc">{{item.desc}}</view>
+        </view>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <view class="intro-foot">
+    <view class="dots">
+      <view class="dot {{index === slide ? 'on' : ''}}" wx:for="{{slides}}"
+            wx:key="tag" data-i="{{index}}" bindtap="onDot"></view>
+    </view>
+
+    <view class="always-row {{always ? 'on' : ''}}" bindtap="onToggleAlways" hover-class="hover-dim">
+      <view class="always-chk">{{always ? '✓' : ''}}</view>
+      <text class="always-txt">每次打开小程序都显示这一遍</text>
+    </view>
+
+    <view class="btn-primary intro-btn" bindtap="onNext" hover-class="hover-dim">
+      {{slide === slides.length - 1 ? '开始使用' : '下一步'}}
+    </view>
+  </view>
+</view>

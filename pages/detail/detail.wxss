@@ -1,0 +1,87 @@
+/* ===== 本页主题色（覆盖 app.wxss 默认值） ===== */
+page {
+  --brand: #3B6FF5;
+  --brand-2: #6C8FF7;
+  --brand-soft: #EDF2FF;
+  --brand-ghost: rgba(59, 111, 245, .10);
+  --brand-glow: rgba(59, 111, 245, .28);
+  --bg-1: #F5F7FF;
+  --bg-2: #EEF2FB;
+  --card-2: #FCFDFF;
+}
+
+/* pages/detail/detail.wxss */
+.cat-tag { display: inline-block; margin-top: 8rpx; padding: 2rpx 14rpx; background: var(--brand-soft); color: var(--brand); font-size: 21rpx; border-radius: 16rpx; }
+.reason { margin-top: 10rpx; color: #E8A33D; }
+
+.stat-row { display: flex; align-items: center; margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid #F1F3F8; }
+.stat { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.stat-n { font-size: 34rpx; font-weight: 700; color: var(--brand); line-height: 1.3; }
+.stat-sep { width: 1rpx; height: 40rpx; background: #E7EBF3; }
+
+.row { display: flex; gap: 20rpx; margin-top: 24rpx; }
+.f1 { flex: 1; }
+.sec-head { font-weight: 600; font-size: 30rpx; margin-bottom: 10rpx; }
+
+/* ---------- 掌握轨迹 ---------- */
+.track { margin-top: 22rpx; }
+.tk-row { display: flex; align-items: center; margin-bottom: 14rpx; }
+.tk-label { width: 110rpx; font-size: 23rpx; color: #8A90A0; }
+.tk-bar-wrap {
+  flex: 1; height: 22rpx; background: #F1F3F8; border-radius: 11rpx;
+  overflow: hidden; margin-right: 14rpx;
+}
+.tk-bar {
+  height: 100%; border-radius: 11rpx; min-width: 8rpx;
+  background: linear-gradient(90deg, var(--brand-2), var(--brand));
+}
+.tk-bar.ok  { background: linear-gradient(90deg, #5CC17A, #34A853); }
+.tk-bar.bad { background: linear-gradient(90deg, #FF8A8A, #FF5A5F); }
+.tk-val { width: 84rpx; text-align: right; font-size: 24rpx; font-weight: 600; color: #4A5062; }
+.tk-tip {
+  margin-top: 16rpx; padding: 16rpx 18rpx; background: #F7F8FC; border-radius: 12rpx;
+  font-size: 24rpx; color: #4A5062; line-height: 1.65;
+}
+
+/* ---------- 调度解释 ---------- */
+.why-head { display: flex; align-items: center; justify-content: space-between; }
+.why-arrow { font-size: 24rpx; color: var(--brand); }
+.why-item { margin-top: 22rpx; }
+.why-line { display: flex; align-items: baseline; margin-bottom: 8rpx; }
+.why-name { flex: 1; font-size: 26rpx; font-weight: 600; }
+.why-pct { font-size: 26rpx; font-weight: 700; color: var(--brand); margin-right: 14rpx; }
+.why-w { font-size: 21rpx; color: #B4BAC8; }
+.why-bar-wrap { height: 18rpx; background: #F1F3F8; border-radius: 9rpx; overflow: hidden; }
+.why-bar { height: 100%; border-radius: 9rpx; }
+.b-urgency { background: linear-gradient(90deg, #FFB86B, #F08A24); }
+.b-uncertainty { background: linear-gradient(90deg, #7C5BD9, #5B4BD6); }
+.b-errorRate { background: linear-gradient(90deg, #FF8A8A, #FF5A5F); }
+.why-detail { margin-top: 8rpx; font-size: 22rpx; }
+.why-total {
+  margin-top: 24rpx; padding-top: 18rpx; border-top: 1rpx solid #F1F3F8;
+  font-size: 26rpx; color: #4A5062;
+}
+.why-total-n { font-size: 34rpx; font-weight: 700; color: var(--brand); margin: 0 6rpx; }
+.why-tip {
+  margin-top: 14rpx; padding: 16rpx 18rpx; background: #FFF7E6; border-radius: 12rpx;
+  font-size: 24rpx; color: #B7791F; line-height: 1.65;
+}
+
+/* ---------- 内容 / 编辑 ---------- */
+.content { font-size: 28rpx; line-height: 1.75; color: #40465A; white-space: pre-wrap; }
+.kw { margin-top: 22rpx; padding-top: 18rpx; border-top: 1rpx solid #F1F3F8; }
+.kw-text { margin-top: 8rpx; font-size: 25rpx; color: var(--brand); line-height: 1.7; }
+.picker { background: #F7F8FC; border-radius: 14rpx; padding: 22rpx; font-size: 28rpx; color: #40465A; }
+.t-input { font-size: 29rpx; font-weight: 600; padding: 14rpx 0; border-bottom: 1rpx solid #EEF0F6; }
+.c-input { width: 100%; min-height: 220rpx; margin-top: 16rpx; padding: 20rpx; box-sizing: border-box; background: #F7F8FC; border-radius: 14rpx; font-size: 27rpx; line-height: 1.7; }
+.ph { color: #B4BAC8; }
+.danger { color: #D93025; border-color: #F0B4B0; margin: 16rpx 0 40rpx; }
+.back { margin: 16rpx 0 40rpx; }
+
+/* 出题能力 */
+.ab-modes { margin-top: 12rpx; font-size: 27rpx; font-weight: 600; color: #1E7B3C; line-height: 1.6; }
+.ab-modes.ok { color: #B7791F; }
+.ab-modes.poor { color: #B3261E; }
+.ab-tips { margin-top: 14rpx; }
+.ab-tip { font-size: 23rpx; color: #6B7280; line-height: 1.75; }
+.ok-tip { color: #1E7B3C; }

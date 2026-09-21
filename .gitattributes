@@ -1,0 +1,18 @@
+# 强制所有文本文件用 LF —— 微信开发者工具对 CRLF 敏感，
+# 混用会导致「找不到模块」这类编译错误（本项目踩过）。
+* text=auto eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.wxml text eol=lf
+*.wxss text eol=lf
+*.md   text eol=lf
+*.py   text eol=lf
+*.txt  text eol=lf
+
+# 二进制文件不做换行处理
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.pdf  binary
+*.zip  binary

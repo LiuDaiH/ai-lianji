@@ -1,0 +1,212 @@
+<!-- pages/help/help.wxml -->
+<view class="container">
+
+  <!-- ===== 品牌头部 ===== -->
+  <view class="brand-card">
+    <image class="bc-logo" src="{{brand.LOGO}}" mode="aspectFit" />
+    <view class="bc-name">{{brand.NAME}}</view>
+    <view class="bc-tag">{{brand.TAGLINE}}</view>
+    <view class="bc-desc">{{brand.DESC}}</view>
+    <view class="bc-ver">v{{brand.VERSION}}</view>
+  </view>
+
+  <!-- ===== AI 能力（核心创新点 ①） ===== -->
+  <view class="card ai-card" wx:if="{{aiFeatures.length}}">
+    <view class="ai-title-row">
+      <view class="ai-title">AI 学习引擎</view>
+      <view class="ai-tag">核心创新点 ①</view>
+    </view>
+    <view class="subtle">
+      五处都有 AI，但<text class="em">边界很清楚</text>：AI 只负责「整理」和「批改」，答题必须你自己完成 ——
+      因为记忆只在你自己回忆的那一刻产生。
+    </view>
+
+    <view class="feat-list">
+      <view class="feat" wx:for="{{aiFeatures}}" wx:key="key">
+        <view class="feat-dot"></view>
+        <view class="feat-body">
+          <view class="feat-head">
+            <text class="feat-name">{{item.name}}</text>
+            <text class="feat-where">{{item.where}}</text>
+          </view>
+          <view class="feat-desc">{{item.desc}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="ai-toggle" bindtap="onToggleAi" hover-class="hover-dim">
+      <view class="ai-toggle-sw {{aiOff ? '' : 'on'}}"><view class="ai-toggle-knob"></view></view>
+      <view class="ai-toggle-text">
+        <text class="ai-toggle-name">{{aiOff ? 'AI 已关闭' : 'AI 已开启'}}</text>
+        <text class="subtle">{{aiOff ? '全部使用本地算法，功能一个不少' : '卡住/答错时会有 AI 帮你'}}</text>
+      </view>
+    </view>
+
+    <view class="ai-state ai-{{aiState}}">
+      <block wx:if="{{aiOff}}">ℹ️ 已关闭 AI —— 智能切卡退回本地 7 种规则解析，判分退回关键词命中率</block>
+      <block wx:elif="{{aiState === 'ok'}}">✅ {{aiMsg}}</block>
+      <block wx:elif="{{aiState === 'fail'}}">⚠️ {{aiMsg}}</block>
+      <block wx:elif="{{aiState === 'saved'}}">ℹ️ {{aiMsg}}</block>
+      <block wx:elif="{{aiUsingBuiltin}}">✅ 已就绪（使用应用内置的 AI 环境，无需配置）</block>
+      <block wx:else>未配置 —— 不影响使用，AI 会自动降级为本地算法</block>
+    </view>
+
+    <view class="d-label" wx:if="{{!aiOff}}">自定义云开发环境 ID（可选）</view>
+    <input class="d-input2" wx:if="{{!aiOff}}" value="{{aiEnv}}" bindinput="onAiEnvInput"
+           placeholder="留空即使用应用内置环境；或填你自己的" placeholder-class="ph" />
+
+    <view class="ai-btns" wx:if="{{!aiOff}}">
+      <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onSaveAiEnv">保存</view>
+      <view hover-class="hover-dim" class="btn-primary f1 {{aiTesting ? 'busy' : ''}}" bindtap="onTestAi">
+        {{aiTesting ? '测试中…' : '测试连通性'}}
+      </view>
+    </view>
+    <view hover-class="hover-dim" class="ai-help-link" bindtap="onResetAiEnv" wx:if="{{!aiOff && aiEnv}}">
+      清空我填的，恢复默认
+    </view>
+
+    <view hover-class="hover-dim" class="ai-help-link" bindtap="onAiHelp">复制「怎么开启 AI」的步骤</view>
+
+    <view class="ai-note subtle">
+      AI 由微信云开发提供，密钥在平台侧托管、不下发到小程序。
+      不填任何东西也能直接使用；关掉开关则完全以本地算法运行。
+    </view>
+  </view>
+
+  <!-- ===== 产品介绍（swiper 动画） ===== -->
+  <view class="hero-card">
+    <swiper class="swiper" circular autoplay interval="5200" duration="420"
+            current="{{slide}}" bindchange="onSwiper">
+      <swiper-item wx:for="{{slides}}" wx:key="tag">
+
+        <!-- 第 1 屏：卡片堆 -->
+        <view class="s-stage" wx:if="{{index === 0}}">
+          <view class="stack">
+            <view class="sc sc3"></view>
+            <view class="sc sc2"></view>
+            <view class="sc sc1">
+              <view class="sc-line w70"></view>
+              <view class="sc-line w45"></view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 第 2 屏：粘贴 → 切卡 -->
+        <view class="s-stage" wx:elif="{{index === 1}}">
+          <view class="fake-input">类的定义<br/>继承<br/>多态</view>
+          <view class="down-arrow">↓</view>
+          <view class="tiny-row">
+            <view class="tiny t1">类的定义</view>
+            <view class="tiny t2">继承</view>
+            <view class="tiny t3">多态</view>
+          </view>
+        </view>
+
+        <!-- 第 3 屏：五种题型 -->
+        <view class="s-stage" wx:elif="{{index === 2}}">
+          <view hover-class="hover-dim" class="chips">
+            <view hover-class="hover-dim" class="chip c1">翻转卡片</view>
+            <view hover-class="hover-dim" class="chip c2">选择题</view>
+            <view hover-class="hover-dim" class="chip c3">判断题</view>
+            <view hover-class="hover-dim" class="chip c4">填空题</view>
+            <view hover-class="hover-dim" class="chip c5">默写题</view>
+          </view>
+        </view>
+
+        <!-- 第 4 屏：间隔伸缩 -->
+        <view class="s-stage" wx:elif="{{index === 3}}">
+          <view class="steps">
+            <view class="stp s1">1天</view>
+            <view class="arw">→</view>
+            <view class="stp s2">2天</view>
+            <view class="arw">→</view>
+            <view class="stp s3">4天</view>
+            <view class="arw">→</view>
+            <view class="stp s4">8天</view>
+          </view>
+          <view class="s-note">答对拉长 · 答错缩短</view>
+        </view>
+
+        <!-- 第 5 屏：热力图 -->
+        <view class="s-stage" wx:else>
+          <view class="heat-demo">
+            <view class="hc lv{{item}}" wx:for="{{heatDemo}}" wx:key="index"
+                  style="animation-delay:{{index * 0.02}}s"></view>
+          </view>
+        </view>
+
+        <!-- 文案 -->
+        <view class="s-text">
+          <view class="s-tag">{{item.tag}}</view>
+          <view class="s-title">{{item.title}}</view>
+          <view class="s-desc">{{item.desc}}</view>
+        </view>
+
+        <view class="s-index">{{index + 1}} / {{slides.length}}</view>
+      </swiper-item>
+    </swiper>
+
+    <!-- 指示点 -->
+    <view class="dots">
+      <view class="dot {{index === slide ? 'on' : ''}}" wx:for="{{slides}}"
+            wx:key="tag" data-i="{{index}}" bindtap="onDot"></view>
+    </view>
+  </view>
+
+  <!-- ===== 快速开始 ===== -->
+  <view class="card">
+    <view class="title">开始使用</view>
+    <view class="subtle">已经录了 {{totalCards}} 张卡片</view>
+    <view hover-class="hover-dim" class="btn-primary mt" bindtap="goCapture">录入知识点</view>
+    <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="goPractice">去做一轮小测</view>
+  </view>
+
+  <!-- ===== 操作引导（模块化） ===== -->
+  <view class="card" id="tour-card">
+    <view class="title">操作引导</view>
+    <view class="subtle">哪一块不清楚，就跟着对应引导走一遍 —— 会一步步高亮该点的位置</view>
+    <view hover-class="hover-dim" class="tour-item" wx:for="{{tours}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="onStartTour">
+      <view class="tour-icon">{{item.icon}}</view>
+      <view class="tour-body">
+        <view class="tour-name">{{item.name}}</view>
+        <view class="subtle">{{item.count}} 个步骤</view>
+      </view>
+      <view class="tour-go">开始 ›</view>
+    </view>
+  </view>
+
+  <!-- ===== 触感反馈 ===== -->
+  <view class="card">
+    <view class="title">答题触感反馈</view>
+    <view class="subtle">答对轻震一下、答错重震一下。不用音效，不占空间也不会干扰记忆</view>
+    <view class="switch-row" bindtap="onToggleHaptic" hover-class="hover-dim">
+      <view class="switch-label">{{hapticOn ? '已开启' : '已关闭'}}</view>
+      <view class="switch {{hapticOn ? 'on' : ''}}">
+        <view class="knob"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 介绍展示频率 ===== -->
+  <view class="card">
+    <view class="title">产品介绍什么时候显示</view>
+    <view class="subtle">自动弹出的介绍只影响体验，数据不受影响</view>
+    <view class="opt {{item.key === introMode ? 'on' : ''}}" wx:for="{{modeOptions}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="onPickIntroMode" hover-class="hover-dim">
+      <view class="opt-radio"></view>
+      <view class="opt-body">
+        <view class="opt-label">{{item.label}}</view>
+        <view class="subtle">{{item.desc}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 数据备份 ===== -->
+  <view class="card">
+    <view class="title">数据备份</view>
+    <view class="subtle">数据存在本机。换手机或重装前，先导出一份（含卡片、类别、复习记录）</view>
+    <view hover-class="hover-dim" class="btn-ghost mt" bindtap="onExport">导出备份文件</view>
+  </view>
+
+</view>

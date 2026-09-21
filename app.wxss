@@ -1,0 +1,247 @@
+/* app.wxss —— 全局样式 / 设计变量
+ *
+ * 配色策略：
+ *   ① 全局只定义「一套语义变量」，各页面在自己的 wxss 里覆盖 --brand / --bg-* 等，
+ *      于是同一个 .btn-primary、.sec、.tag 在不同板块自动换色，不用改组件。
+ *   ② 底色和卡面都不用纯色 —— 页面是柔和渐变，卡片是白→极淡主题色渐变，
+ *      阴影也带一点主题色，整体才不会是"一整片灰白"。
+ */
+page {
+  /* ---------- 品牌色（各页面覆盖） ---------- */
+  --brand: #3B6FF5;
+  --brand-2: #6C8FF7;
+  --brand-deep: #2551D6;
+  --brand-soft: #EDF2FF;
+  --brand-ghost: rgba(59, 111, 245, .10);
+  --brand-glow: rgba(59, 111, 245, .28);
+
+  /* ---------- 语义色 ---------- */
+  --ok: #22B573;
+  --ok-2: #4FD1A5;
+  --ok-soft: #E7F7F0;
+  --warn: #F0851F;
+  --warn-2: #FBBF24;
+  --warn-soft: #FFF3E4;
+  --danger: #FF5A5F;
+  --danger-2: #FF8A8E;
+  --danger-soft: #FFEDEE;
+
+  /* ---------- 中性色 ---------- */
+  --ink: #1F2430;
+  --ink-2: #6B7280;
+  --ink-3: #9AA0AC;
+  --line: #EDF0F6;
+  --bg-1: #F4F7FF;      /* 页面渐变起点 */
+  --bg-2: #EDF1FA;      /* 页面渐变终点 */
+  --card: #FFFFFF;
+  --card-2: #FCFDFF;    /* 卡面渐变终点（各页面让它偏自己的主题色） */
+
+  /* ---------- 形状 ---------- */
+  --r: 22rpx;
+  --r-lg: 30rpx;
+  --sh-1: 0 2rpx 12rpx rgba(31, 36, 48, .05);
+  --sh-2: 0 10rpx 28rpx rgba(31, 36, 48, .10);
+  --sh-brand: 0 10rpx 30rpx rgba(59, 111, 245, .24);
+
+  background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--ink);
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.container {
+  padding: 24rpx 24rpx 40rpx;
+  box-sizing: border-box;
+}
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: #FFFFFF;
+  background-image: linear-gradient(180deg, #FFFFFF 0%, var(--card-2) 100%);
+  border-radius: var(--r);
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: var(--sh-1);
+  animation: cardIn .3s ease both;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 列表项错峰入场：给需要错峰的元素加 style="animation-delay:0.0Xs" 即可 */
+.stagger { animation: cardIn .32s ease both; }
+
+/* 可点卡片：抬起 + 阴影加深 */
+.card-tap { transition: transform .14s ease, box-shadow .14s ease; }
+.card-tap:hover,
+.card-tap.hover-lift { transform: translateY(-4rpx); box-shadow: var(--sh-2); }
+
+/* 主题色描边卡：用于需要"跳出来"的区块 */
+.card-brand {
+  border: 2rpx solid var(--brand-soft);
+  box-shadow: 0 6rpx 22rpx var(--brand-ghost);
+}
+
+/* 区块小标题：左侧一条品牌色渐变竖线 */
+.sec {
+  display: flex; align-items: center;
+  font-size: 30rpx; font-weight: 700; margin-bottom: 6rpx;
+}
+.sec::before {
+  content: ""; width: 8rpx; height: 28rpx; border-radius: 4rpx;
+  background: linear-gradient(180deg, var(--brand-2), var(--brand));
+  margin-right: 14rpx;
+}
+
+/* ---------- 按钮 ---------- */
+.btn-primary {
+  background: var(--brand);
+  background-image: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+  color: #FFFFFF;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 88rpx;
+  text-align: center;
+  box-shadow: 0 8rpx 20rpx var(--brand-glow);
+  transition: opacity .12s, transform .12s;
+}
+.btn-primary[disabled] {
+  background: #B9C6E8;
+  background-image: none;
+  box-shadow: none;
+  color: #F0F2F7;
+}
+
+.btn-ghost {
+  background: #FFFFFF;
+  color: var(--brand);
+  border: 2rpx solid var(--brand);
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  line-height: 84rpx;
+  text-align: center;
+  transition: opacity .12s, transform .12s;
+}
+
+/* 统一点按反馈 —— 所有可点元素都加 hover-class="hover-dim" */
+.hover-dim { opacity: .72; transform: scale(.985); }
+
+/* 次要操作按钮（浅底、无边框） */
+.btn-soft {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 80rpx;
+  text-align: center;
+}
+
+/* ---------- 文本 ---------- */
+.title   { font-size: 34rpx; font-weight: 700; }
+.subtle  { color: #8A90A0; font-size: 24rpx; }
+.empty   { text-align: center; color: #A8AEBC; padding: 120rpx 0; font-size: 28rpx; }
+
+/* 大数字（统计用） */
+.num {
+  font-size: 46rpx; font-weight: 800; letter-spacing: -.5rpx;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 主题色渐变文字（标题用，比纯色更有质感） */
+.grad-text {
+  background-image: linear-gradient(120deg, var(--brand) 0%, var(--brand-2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- 标签 ---------- */
+.tag {
+  display: inline-block;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  margin-right: 12rpx;
+}
+
+/* 状态胶囊：待复习 / 未填内容 等 */
+.pill {
+  display: inline-flex; align-items: center;
+  font-size: 21rpx; line-height: 1; font-weight: 600;
+  padding: 8rpx 16rpx; border-radius: 999rpx;
+}
+.pill-due   { background: var(--danger-soft); color: var(--danger); }
+.pill-ok    { background: var(--ok-soft);     color: var(--ok); }
+.pill-warn  { background: var(--warn-soft);   color: var(--warn); }
+.pill-brand { background: var(--brand-soft);  color: var(--brand); }
+.pill-new   { background: #EEF0F6;            color: var(--ink-2); }
+.pill::before {
+  content: ""; width: 10rpx; height: 10rpx; border-radius: 50%;
+  background: currentColor; margin-right: 8rpx; opacity: .9;
+}
+.pill-nodot::before { display: none; }
+
+/* ---------- 进度条 ---------- */
+.bar {
+  height: 14rpx; border-radius: 999rpx; background: #EEF0F6; overflow: hidden;
+}
+.bar-fill {
+  height: 100%; border-radius: 999rpx;
+  background-image: linear-gradient(90deg, var(--brand-2), var(--brand));
+  transition: width .5s cubic-bezier(.2,.9,.3,1);
+}
+.bar-fill.is-ok { background-image: linear-gradient(90deg, var(--ok-2), var(--ok)); }
+
+/* ---------- 通用动画工具类 ---------- */
+.fade-up { animation: fadeUp .34s cubic-bezier(.2,.9,.3,1.1) both; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pop-in { animation: popIn .34s cubic-bezier(.2,.9,.3,1.4) both; }
+@keyframes popIn {
+  from { opacity: 0; transform: scale(.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* 进度条生长 */
+.grow { animation: grow .6s cubic-bezier(.2,.9,.3,1) both; transform-origin: left center; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* 数字跳动 */
+.tick { animation: tick .5s cubic-bezier(.2,.9,.3,1.4) both; }
+@keyframes tick {
+  0%   { opacity: 0; transform: translateY(8rpx) scale(.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 呼吸光晕（FAB 用） */
+.breathe { animation: breathe 2.8s ease-in-out infinite; }
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 8rpx 24rpx var(--brand-ghost), 0 0 0 0 var(--brand-ghost); }
+  50%      { box-shadow: 0 10rpx 28rpx var(--brand-ghost), 0 0 0 16rpx rgba(255,255,255,0); }
+}
+
+/* 尊重系统「减弱动态效果」 */
+@media (prefers-reduced-motion: reduce) {
+  .card, .stagger, .fade-up, .pop-in, .grow, .tick, .breathe { animation: none !important; }
+}
+
+/* ============================================================
+ * 各板块主题皮肤
+ * ------------------------------------------------------------
+ * 在每个页面的 wxss 里加：
+ *     page { --brand: ...; --brand-2: ...; --brand-soft: ...;
+ *            --brand-ghost: rgba(...);
+ *            --bg-1: ...; --bg-2: ...; --card-2: ...; }
+ * 该页面下所有用 var(--brand) 的地方（按钮 / 小标题 / 标签 / 进度条 …）
+ * 会自动跟着换色，组件不用改。
+ * ============================================================ */

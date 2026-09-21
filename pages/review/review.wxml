@@ -1,0 +1,67 @@
+<!-- pages/review/review.wxml -->
+<view class="container">
+
+  <view class="cat-bar" id="cat-bar" bindtap="onOpenPicker" hover-class="hover-dim">
+    <view class="cat-bar-label">范围</view>
+    <view class="cat-bar-value">{{rangeText}}</view>
+    <view class="cat-bar-go">切换 ›</view>
+  </view>
+
+  <view class="card" id="preset-card">
+    <view class="sec">「{{rangeShort}}」今天练哪几张</view>
+    <view class="subtle">按「收益」排序 —— 时间有限也能挑到最该练的</view>
+    <view class="presets">
+      <view hover-class="hover-dim" class="preset {{index === activePreset ? 'on' : ''}}" wx:for="{{presets}}"
+            wx:key="label" data-idx="{{index}}" bindtap="onPickPreset">{{item.label}}</view>
+    </view>
+  </view>
+
+  <view class="card" id="forecast-card">
+    <view class="sec">接下来几天的量</view>
+    <view class="bars">
+      <view class="bar-item" wx:for="{{forecast}}" wx:key="label">
+        <view class="bar-count">{{item.count}}</view>
+        <view class="bar-wrap"><view class="bar-fill" style="height:{{item.pct}}%"></view></view>
+        <view class="bar-label subtle">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{queue.length === 0}}">
+    <view>这个范围内今天没有待复习的</view>
+    <view hover-class="hover-dim" class="btn-ghost tour-btn" bindtap="onRestartTour">看一遍操作引导</view>
+  </view>
+
+  <block wx:else>
+    <view class="cue-bar">
+      <text>已挑出 <text class="cue-strong">{{queue.length}}</text> 张 · 约 <text class="cue-strong">{{etaMin}}</text> 分钟</text>
+      <text class="cue-tip">按收益从高到低</text>
+    </view>
+
+    <view class="card card-tap q-item" wx:for="{{queue}}" wx:key="id" data-id="{{item.id}}" bindtap="onTapNote"
+          hover-class="hover-dim" style="animation-delay:{{index < 8 ? index * 0.03 : 0}}s">
+      <view class="q-top">
+        <view class="idx">{{index + 1}}</view>
+        <view class="q-main">
+          <view class="title">{{item.title}}</view>
+          <view class="cat-tag">{{item._cat}}</view>
+        </view>
+      </view>
+      <view class="subtle why">{{item._reason}}</view>
+      <!-- 收益强度条：越长的越该先练 -->
+      <view class="heat">
+        <view class="heat-track"><view class="heat-fill" style="width:{{item._heat}}%"></view></view>
+        <text class="heat-num">收益 {{item._heat}}</text>
+      </view>
+      <view class="subtle meta">间隔 {{item.interval || 1}} 天 · 复习 {{item.reviewCount || 0}} 次</view>
+    </view>
+
+    <view hover-class="hover-dim" class="btn-primary start" id="start" bindtap="onStart">开始小测（{{queue.length}} 张）</view>
+    <view hover-class="hover-dim" class="btn-ghost tour-btn2" bindtap="onRestartTour">看一遍操作引导</view>
+  </block>
+
+  <cat-picker show="{{showPicker}}" active="{{activeCat}}"
+              bind:pick="onPickCat" bind:change="onCatChange" />
+  <coach id="coach" bind:lock="onTourLock" flow="{{tourFlow}}" active="{{tourActive}}" bind:close="onTourClose" />
+
+</view>

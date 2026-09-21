@@ -1,0 +1,131 @@
+<!-- pages/detail/detail.wxml -->
+<view class="container">
+
+  <block wx:if="{{note}}">
+    <block wx:if="{{!editing}}">
+
+      <!-- 概览 -->
+      <view class="card">
+        <view class="title">{{note.title}}</view>
+        <view class="cat-tag">{{catText}}</view>
+        <view class="subtle reason">{{reason}}</view>
+        <view class="stat-row">
+          <view class="stat"><text class="stat-n">{{note.interval || 1}}</text><text class="subtle">天间隔</text></view>
+          <view class="stat-sep"></view>
+          <view class="stat"><text class="stat-n">{{note.reviewCount || 0}}</text><text class="subtle">次复习</text></view>
+          <view class="stat-sep"></view>
+          <view class="stat">
+            <text class="stat-n">{{note.alpha || 1}}/{{(note.alpha || 1) + (note.beta || 1)}}</text>
+            <text class="subtle">答对/总</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 复习 -->
+      <view class="card">
+        <view class="sec-head">还记不记得？</view>
+        <view class="subtle">答对会把间隔拉长，答错会缩短</view>
+        <view class="row">
+          <view class="btn-ghost f1" hover-class="hover-dim" data-correct="false" bindtap="onReview">忘了</view>
+          <view class="btn-primary f1" hover-class="hover-dim" data-correct="true" bindtap="onReview">记得</view>
+        </view>
+      </view>
+
+      <!-- ============ 掌握轨迹 ============ -->
+      <view class="card">
+        <view class="title">掌握轨迹</view>
+        <view class="subtle">每次复习后系统安排的间隔 —— 它变长，说明记忆在巩固</view>
+        <view class="track">
+          <view class="tk-row" wx:for="{{track}}" wx:key="round">
+            <view class="tk-label">第{{item.round}}次</view>
+            <view class="tk-bar-wrap">
+              <view class="tk-bar grow {{item.right ? 'ok' : (item.right === false ? 'bad' : '')}}"
+                    style="width:{{item.pct}}%"></view>
+            </view>
+            <view class="tk-val">{{item.interval}}天</view>
+          </view>
+        </view>
+        <view class="tk-tip">{{trackTip}}</view>
+      </view>
+
+      <!-- ============ 为什么现在复习它 ============ -->
+      <view class="card">
+        <view class="why-head" bindtap="onToggleWhy" hover-class="hover-dim">
+          <view class="title">为什么现在复习它</view>
+          <view class="why-arrow">{{showWhy ? '收起 ▴' : '展开 ▾'}}</view>
+        </view>
+        <view class="subtle">这一条对应算法里的三个分项，权重不同</view>
+
+        <block wx:if="{{showWhy && why}}">
+          <view class="why-item" wx:for="{{why.parts}}" wx:key="key">
+            <view class="why-line">
+              <text class="why-name">{{item.label}}</text>
+              <text class="why-pct">{{item.pct}}%</text>
+              <text class="why-w">权重 {{item.weight * 100}}%</text>
+            </view>
+            <view class="why-bar-wrap">
+              <view class="why-bar b-{{item.key}} grow" style="width:{{item.pct}}%"></view>
+            </view>
+            <view class="why-detail subtle">{{item.detail}} · 贡献 {{item.contribution}}%</view>
+          </view>
+
+          <view class="why-total">
+            综合优先级 <text class="why-total-n">{{why.totalPct}}</text> / 100
+          </view>
+          <view class="why-tip">{{why.tip}}</view>
+        </block>
+      </view>
+
+      <!-- ============ 这张卡能出什么题 ============ -->
+      <view class="card" wx:if="{{ability}}">
+        <view class="title">这张卡能出什么题</view>
+        <view class="ab-modes {{ability.level}}">{{ability.modeNames.length ? ability.modeNames.join(' / ') : '暂时出不了题'}}</view>
+        <view class="ab-tips" wx:if="{{ability.tips.length}}">
+          <view class="ab-tip" wx:for="{{ability.tips}}" wx:key="*this">· {{item}}</view>
+        </view>
+        <view class="ab-tip ok-tip" wx:else>题型齐全 —— 判断题、填空题、默写题都能用</view>
+      </view>
+
+      <!-- 内容 -->
+      <view class="card">
+        <view class="sec-head">内容</view>
+        <view class="content">{{note.content || '（还没填内容）'}}</view>
+        <view class="kw" wx:if="{{highlight}}">
+          <view class="subtle">出题关键词</view>
+          <view class="kw-text">{{highlight}}</view>
+        </view>
+      </view>
+
+      <!-- 所属类别 -->
+      <view class="card">
+        <view class="sec-head">所属类别</view>
+        <picker mode="selector" range="{{catOptions}}" range-key="label" value="{{catIndex}}" bindchange="onPickCat">
+          <view class="picker">{{catText}} ▾</view>
+        </picker>
+      </view>
+
+      <view class="btn-ghost" hover-class="hover-dim" bindtap="onEdit">编辑这张卡片</view>
+      <view class="btn-ghost danger" hover-class="hover-dim" bindtap="onDelete">删除这张卡片</view>
+    </block>
+
+    <!-- 编辑态 -->
+    <block wx:else>
+      <view class="card">
+        <view class="sec-head">标题（知识点名称）</view>
+        <input class="t-input" value="{{eTitle}}" bindinput="onETitle"
+               placeholder="例如：类的定义" placeholder-class="ph" />
+      </view>
+      <view class="card">
+        <view class="sec-head">内容</view>
+        <view class="subtle">可以用「【】」或「**」把关键词标出来，填空题会优先挖这些词</view>
+        <textarea class="c-input" value="{{eContent}}" bindinput="onEContent"
+                  placeholder="例如：类是对象的抽象，用 class 关键字声明。" placeholder-class="ph" auto-height />
+      </view>
+      <view class="btn-primary" hover-class="hover-dim" bindtap="onSaveEdit">保存修改</view>
+      <view class="btn-ghost back" hover-class="hover-dim" bindtap="onCancelEdit">取消</view>
+    </block>
+  </block>
+
+  <view class="empty" wx:else>卡片不存在</view>
+
+</view>

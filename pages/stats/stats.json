@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "学习统计",
+  "usingComponents": {
+    "coach": "/components/coach/coach",
+    "cat-picker": "/components/cat-picker/cat-picker"
+  },
+  "navigationBarBackgroundColor": "#E07B0A",
+  "navigationBarTextStyle": "white"
+}
