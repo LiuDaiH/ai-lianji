@@ -28,6 +28,7 @@ const SHEET_LIST_MAX = 198;        // ⚠️ 抽屉别盖满画布 —— 上限
 const POP_MS = 260;                // 点击回弹时长
 
 const LEVEL_TEXT = { new: '未学', learning: '学习中', mastered: '已掌握' };
+const KEY_LAYOUT = 'sc_graph_layout';   // 力导向结果缓存（大图不用每次重算）
 
 Page({
   data: {
@@ -143,7 +144,7 @@ Page({
 
   /* ==================== 数据 + 布局 ==================== */
 
-  build(sig) {
+  build(sig, force) {
     if (!this._ready) return;
     this._sig = sig !== undefined ? sig : this.dataSig();
     const all = store.listNotes();
@@ -173,7 +174,7 @@ Page({
     }
 
     if (!notes.length) {
-      this.nodes = []; this.edges = []; this._idx = {};
+      this.nodes = []; this.edges = []; this._idx = {}; this.blobs = [];
       this._focus = null;
       this.setData({ stats: s, empty: all.length === 0, trimmed: 0, shown: 0, focus: null });
       this.closeSheet();
@@ -182,14 +183,42 @@ Page({
     }
 
     const g = link.buildGraph(notes, cats);
-    const out = graphLib.layout(g, this.W, this.H, {});
-    // _g = 入场进度（0→1）：打开页面时节点依次弹出，别一上来就一坨静态点
-    // 入场动画只在**第一次**画出来时播；重排 / 切筛选不播（否则每次都"蹦一遍"，像卡顿）
     const playEnter = !this._enterDone;
     this._enterDone = true;
-    this.nodes = out.nodes.map((n, i) => Object.assign(n, { _a: 1, _g: playEnter ? 0 : 1, _i: i }));
-    this._enterT0 = playEnter ? Date.now() : null;
-    this.edges = out.edges;
+    this.nodes = g.nodes.map((n, i) => Object.assign(n, { x: 0, y: 0, _a: 1, _g: 1, _i: i }));
+    this.edges = g.edges;
+
+    // 掌握度百分比挂在节点上：精读档要写「标题 + 75%」，每帧去查表太浪费
+    const info = {};
+    all.forEach((n) => {
+      const a = n.alpha || 1;
+      const b = n.beta || 1;
+      info[n.id] = { pct: Math.round((a / (a + b)) * 100), reviews: n.reviewCount || 0 };
+    });
+    this.nodes.forEach((n) => {
+      if (n.type !== 'note') return;
+      const i = info[n.rawId] || {};
+      n.pct = i.pct || 0;
+      n.reviews = i.reviews || 0;
+    });
+
+    // ⚠️ 大图布局很贵（力导向 O(n²)）。**复用上次算好的坐标**，进页面秒开；
+    //    「重排」才强制重算（force = true）
+    const reused = !force && this.loadLayout();
+    if (!reused) {
+      const out = graphLib.layout(g, this.W, this.H, {});
+      out.nodes.forEach((n, i) => { this.nodes[i].x = n.x; this.nodes[i].y = n.y; });
+      this.saveLayout();
+    }
+    if (playEnter && !reused) {
+      this.nodes.forEach((n) => { n._g = 0; });
+      this._enterT0 = Date.now();
+    } else {
+      this._enterT0 = null;
+    }
+
+    // 聚合圈：把「卡片多的大类别」收成一个带数字的圈，缩到最远时靠它显示全貌
+    this.blobs = graphLib.blobsOf(this.nodes);
     this._idx = {};
     this.nodes.forEach((n) => { this._idx[n.id] = n; });
 
@@ -213,9 +242,32 @@ Page({
     this.play();          // 入场动画：节点依次弹出
   },
 
-  labelTextOf() {
-    const t = graphLib.labelTier(this.view.scale, this.nodes.length);
-    return t === 2 ? '类别+卡片' : (t === 1 ? '类别+选中' : '仅类别');
+  lod() { return graphLib.lodOf(this.view.scale); },
+
+  labelTextOf() { return graphLib.lodText(this.lod()); },
+
+  /* ---------- 布局缓存（大图秒开的关键） ---------- */
+
+  loadLayout() {
+    try {
+      const c = wx.getStorageSync(KEY_LAYOUT);
+      if (!c || c.sig !== this._sig || !c.pos) return false;
+      let hit = 0;
+      this.nodes.forEach((n) => {
+        const p = c.pos[n.id];
+        if (!p) return;
+        n.x = p[0]; n.y = p[1]; hit += 1;
+      });
+      return hit === this.nodes.length;
+    } catch (e) { return false; }
+  },
+
+  saveLayout() {
+    try {
+      const pos = {};
+      this.nodes.forEach((n) => { pos[n.id] = [Math.round(n.x * 10) / 10, Math.round(n.y * 10) / 10]; });
+      wx.setStorageSync(KEY_LAYOUT, { sig: this._sig, at: Date.now(), pos });
+    } catch (e) { /* 存不下就算了，下次重算 */ }
   },
 
   onToggleFilter() {
@@ -225,7 +277,7 @@ Page({
   onRelayout() {
     wx.showLoading({ title: '重新排布中' });
     setTimeout(() => {
-      this.build();
+      this.build(undefined, true);      // force：不吃缓存，重算一遍
       wx.hideLoading();
     }, 30);
   },
@@ -491,26 +543,26 @@ Page({
 
     const idx = this._idx;
     const selId = this.selId;
-    const tier = graphLib.labelTier(this.view.scale, this.nodes.length);
-    // 统一可见度 = 聚焦淡出(_a) × 入场进度(_g)
+    const lod = this.lod();                       // 语义缩放档位：0 类别层 1 卡片点 2 短标题 3 精读
     const visOf = (n) => (typeof n._a === 'number' ? n._a : 1) * (typeof n._g === 'number' ? n._g : 1);
+    const cull = (x, y) => graphLib.inView(x, y, this.view, W, H, 30);
+
+    // LOD 0：卡片多的大类别已经被收进「圈」里，个体不再画
+    const blobOf = {};
+    if (lod === 0) (this.blobs || []).forEach((b) => { blobOf[b.rawId] = b; });
+    const hiddenByBlob = (n) => lod === 0 && (n.type === 'cat' ? !!blobOf[n.rawId] : !!blobOf[n.cat]);
 
     // ---- 边 ----
     // 选中某张卡时，它的关联边加粗高亮，其余降一档，关系一眼可见
-    const touch = {};
-    if (selId && idx[selId]) {
-      touch[selId] = true;
-      this.edges.forEach((e) => {
-        if (e.a === selId) touch[e.b] = true;
-        else if (e.b === selId) touch[e.a] = true;
-      });
-    }
-
     this.edges.forEach((e) => {
+      // 缩到最远只剩类别层级线：圈内部的连线画了也只是噪音
+      if (lod === 0 && e.kind !== 'tree') return;
       const a = idx[e.a], b = idx[e.b];
       if (!a || !b) return;
+      if (hiddenByBlob(a) || hiddenByBlob(b)) return;
       const alpha = Math.min(visOf(a), visOf(b), 1);
       if (alpha < 0.08) return;
+      if (!cull(a.x, a.y) && !cull(b.x, b.y)) return;      // 两端都在视口外 → 不画
       const hot = selId && (e.a === selId || e.b === selId);
 
       ctx.beginPath();
@@ -541,15 +593,16 @@ Page({
 
     // ---- 节点 ----
     this.nodes.forEach((n) => {
+      if (hiddenByBlob(n)) return;
+      if (!cull(n.x, n.y)) return;
       const a = visOf(n);
       if (a < 0.08) return;
-      const enter = 0.32 + 0.68 * (typeof n._g === 'number' ? n._g : 1);   // 入场时从小长到大
+      const enter = 0.32 + 0.68 * (typeof n._g === 'number' ? n._g : 1);
       const pressed = this.pressed === n;
       const sel = selId === n.id;
       let r = graphLib.radiusOf(n) * enter;
       if (pressed) r *= 1.3;
       else if (sel) r *= 1.2;
-      // 点击回弹：先鼓一下再收回（sin 曲线，比单纯放大更"有弹性"）
       if (this.pop && this.pop.node === n) {
         const k = Math.min(1, (Date.now() - this.pop.t0) / POP_MS);
         r *= 1 + 0.26 * Math.sin(Math.PI * k);
@@ -557,7 +610,6 @@ Page({
 
       ctx.globalAlpha = a;
 
-      // 选中/按下的外圈光晕
       if (sel || pressed) {
         ctx.beginPath();
         ctx.arc(n.x, n.y, r + 4.5, 0, Math.PI * 2);
@@ -585,30 +637,61 @@ Page({
       ctx.globalAlpha = 1;
     });
 
+    // ---- 聚合圈（LOD 0）----
+    if (lod === 0) {
+      (this.blobs || []).forEach((b) => {
+        if (!cull(b.x, b.y)) return;
+        const hot = this.data.focus && this.data.focus.id === b.rawId;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = hot ? 'rgba(59,111,245,.14)' : 'rgba(43,58,85,.09)';
+        ctx.fill();
+        ctx.lineWidth = hot ? 2.2 : 1.6;
+        ctx.strokeStyle = hot ? '#3B6FF5' : '#2B3A55';
+        ctx.setLineDash([5, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#2B3A55';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(String(b.count), b.x, b.y + 1);
+        ctx.font = 'bold 11px sans-serif';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(251,252,254,.92)';
+        const lb = String(b.label || '').slice(0, 8);
+        ctx.strokeText(lb, b.x, b.y + b.r + 13);
+        ctx.fillText(lb, b.x, b.y + b.r + 13);
+      });
+    }
+
     // ---- 点击脉冲：一圈向外扩散的波 ----
-    if (this.pulse && idx[this.pulse.node.id]) {
-      const p = this.pulse.node;
-      const k = Math.max(0, Math.min(1, (Date.now() - p.t0) / 380));
-      const r0 = graphLib.radiusOf(p) + 2;
+    if (this.pulse && typeof this.pulse.node.x === 'number') {
+      const p2 = this.pulse.node;
+      const k = Math.max(0, Math.min(1, (Date.now() - p2.t0) / 380));
+      const r0 = graphLib.radiusOf(p2) + 2;
       ctx.globalAlpha = (1 - k) * 0.5;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, r0 + k * 20, 0, Math.PI * 2);
+      ctx.arc(p2.x, p2.y, r0 + k * 20, 0, Math.PI * 2);
       ctx.lineWidth = 2.4;
-      ctx.strokeStyle = p.type === 'cat' ? '#2B3A55' : '#F0851F';
+      ctx.strokeStyle = p2.type === 'cat' ? '#2B3A55' : '#F0851F';
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
 
-    // ---- 标签（带浅色描边，压在连线/节点上也看得清）----
+    // ---- 标签：档位越高写得越全 ----
+    const noteChars = lod >= 3 ? 10 : 6;
     ctx.textAlign = 'center';
     this.nodes.forEach((n) => {
+      if (hiddenByBlob(n)) return;
+      if (!cull(n.x, n.y)) return;
       const a = visOf(n);
-      if (a < 0.5) return;                       // 淡出 / 还没入场完的节点不写标签
+      if (a < 0.5) return;
       const isSel = selId === n.id || this.pressed === n;
-      const show = n.type === 'cat' ? true : (tier === 2 || isSel);
-      if (!show) return;
-      const r = graphLib.radiusOf(n);
-      const txt = String(n.label || '').slice(0, n.type === 'cat' ? 8 : 7);
+      // LOD 0/1 不给卡片写字（写了就是一坨）；选中/按下的那个例外
+      if (n.type === 'note' && lod <= 1 && !isSel) return;
+      const r = graphLib.radiusOf(n) * (0.32 + 0.68 * (typeof n._g === 'number' ? n._g : 1));
+      const txt = String(n.label || '').slice(0, n.type === 'cat' ? 9 : noteChars);
       if (!txt) return;
 
       ctx.font = n.type === 'cat' ? 'bold 11px sans-serif' : '9px sans-serif';
@@ -619,6 +702,15 @@ Page({
       const ty = n.y + r + (n.type === 'cat' ? 13 : 10);
       ctx.strokeText(txt, n.x, ty);
       ctx.fillText(txt, n.x, ty);
+
+      // 精读档再多给一行掌握度
+      if (lod >= 3 && n.type === 'note') {
+        ctx.font = '9px sans-serif';
+        ctx.fillStyle = n.reviews > 0 ? 'rgba(59,111,245,.92)' : 'rgba(150,156,168,.95)';
+        const sub = n.reviews > 0 ? n.pct + '%' : '未学';
+        ctx.strokeText(sub, n.x, ty + 11);
+        ctx.fillText(sub, n.x, ty + 11);
+      }
       ctx.globalAlpha = 1;
     });
 
@@ -647,6 +739,25 @@ Page({
     const ts = (e && e.touches) || [];
     for (let i = 0; i < ts.length; i += 1) out.push(this.pt(ts[i]));
     return out;
+  },
+
+  /**
+   * 命中检测：LOD 0 时优先命中的是「聚合圈」（它才是那个档位下你看到的东西）
+   */
+  hitAt(p) {
+    if (this.lod() === 0 && (this.blobs || []).length) {
+      let best = null;
+      let bestD = Infinity;
+      this.blobs.forEach((b) => {
+        const d = Math.hypot(b.x - p.x, b.y - p.y);
+        if (d <= Math.max(20, b.r) + 6 && d < bestD) { bestD = d; best = b; }
+      });
+      if (best) {
+        return { id: 'c:' + best.rawId, rawId: best.rawId, type: 'cat',
+                 label: best.label, x: best.x, y: best.y, blob: true };
+      }
+    }
+    return graphLib.hitTest(this.nodes, p.x, p.y, 22);
   },
 
   toLocal(t) {
@@ -678,7 +789,7 @@ Page({
     }
     this.pinch = null;
     const p = this.toLocal(ts[0]);
-    const hit = graphLib.hitTest(this.nodes, p.x, p.y, 22);
+    const hit = this.hitAt(p);
     if (hit) {
       this.dragging = { node: hit, startX: ts[0].x, startY: ts[0].y, ox: hit.x, oy: hit.y };
       this.pressed = hit;
@@ -793,6 +904,15 @@ Page({
 
     this._lastTap = { id: node.id, t: now };
     if (node.type === 'cat') {
+      // 缩到最远（LOD 0，画面里是带数字的圈）时，点它就是「展开这一块」——
+      // 这就是语义缩放该有的交互：点粗的，看细的
+      if (this.lod() === 0) {
+        this.hideSheet();
+        this.setFocus(node.rawId);
+        wx.showToast({ title: '展开「' + node.label + '」', icon: 'none' });
+        this.play();
+        return;
+      }
       this.showCatSheet(node);
       this.play();
       return;

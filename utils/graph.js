@@ -15,7 +15,7 @@
 // 性能：斥力是 O(n²)。n=150 时 150²×220 迭代 ≈ 495 万次，JS 约 120ms 可接受。
 // 超过 MAX_NOTES 先裁剪（页面负责提示用户）。
 
-const MAX_NOTES = 150;
+const MAX_NOTES = 420;          // 上限提高：靠「语义缩放 + 聚合 + 视口裁剪」扛，而不是硬砍
 
 function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
@@ -88,7 +88,8 @@ function sectors(catList, notes, opts) {
  */
 function layout(graph, W, H, opts) {
   const o = opts || {};
-  const ITER = o.iter || 220;
+  // 迭代次数按规模自适应：n 大时少迭代几次（n=400 时 220 次就是 3500 万次运算，白等）
+  const ITER = o.iter || Math.max(70, Math.min(220, Math.round(24000 / Math.max(20, graph.nodes.length))));
   const REP = o.repulsion || 6800;
   const SPRING = o.spring || 0.05;
   const SPRING_LEN = o.springLen || 70;
@@ -268,17 +269,88 @@ function fitView(nodes, W, H, opts) {
 }
 
 /**
- * 标签显示档位 —— 密度自适应，避免"糊成一片字"
- *   0 = 只显示类别标签（缩小看图时，画字只会更乱）
- *   1 = 类别 + 选中/聚焦节点的标签
- *   2 = 全部卡片标题
+ * 语义缩放档位（semantic zoom）—— **同一个图，放大倍数不同，显示的信息粒度不同**
+ *
+ *   0  缩到最远：只画「类别 + 卡片数」的大圈，一整类卡片收成一个带数字的圈
+ *   1  卡片点：能看到一张张卡，颜色 = 掌握度，但不写标题
+ *   2  短标题：写 6 个字，能认出是哪个点
+ *   3  精读：写长一点的标题 + 掌握度百分比，选中节点还高亮它的关联
+ *
+ * 这是"撑住几千张卡"的关键：靠缩放切换粒度，而不是硬砍节点。
  */
-function labelTier(scale, nodeCount) {
-  const n = nodeCount || 0;
-  if (n <= 30) return 2;                 // 图本来就小，直接全给
-  if (scale < 0.8) return 0;
-  if (n <= 55 || scale >= 1.35) return 2;
-  return 1;
+function lodOf(scale, nodeCount) {
+  void nodeCount;
+  const s = typeof scale === 'number' ? scale : 1;
+  if (s < 0.55) return 0;
+  if (s < 1.05) return 1;
+  if (s < 1.75) return 2;
+  return 3;
+}
+
+const LOD_TEXT = ['类别层', '卡片点', '短标题', '精读'];
+
+/** 档位 → 中文说明（给界面角落的小字用） */
+function lodText(lod) { return LOD_TEXT[lod] || LOD_TEXT[3]; }
+
+/** 一个类别里的卡片太少就没必要聚合成圈 —— 小类别直接画点更好看也更准 */
+const BLOB_MIN = 12;
+
+/**
+ * 聚合「圈」：把一个大类别里的卡片收成一个带数字的圈
+ *
+ * 为什么必须有它：几千张卡逐个画必然是糊的。缩小时先给你"这一块有 48 张"，
+ * 想看细节就点它放大（语义缩放的自然交互）。
+ *
+ * @returns [{ id, rawId, x, y, r, count, level, label }]
+ */
+function blobsOf(nodes, opts) {
+  const o = opts || {};
+  const min = typeof o.min === 'number' ? o.min : BLOB_MIN;
+  const catOf = {};
+  const catLabel = {};
+  (nodes || []).forEach((n) => {
+    if (!n) return;
+    if (n.type === 'cat') catLabel[n.rawId || n.id] = n.label;
+  });
+
+  const buckets = {};
+  (nodes || []).forEach((n) => {
+    if (!n || n.type !== 'note') return;
+    const cid = n.cat || '__none__';
+    (buckets[cid] = buckets[cid] || []).push(n);
+  });
+
+  const out = [];
+  Object.keys(buckets).forEach((cid) => {
+    const arr = buckets[cid];
+    if (arr.length < min) return;
+    let sx = 0, sy = 0;
+    const lv = { new: 0, learning: 0, mastered: 0 };
+    arr.forEach((n) => {
+      sx += n.x; sy += n.y;
+      lv[n.level] = (lv[n.level] || 0) + 1;
+    });
+    const x = sx / arr.length;
+    const y = sy / arr.length;
+    // 半径随张数次线性增长（sqrt），再夹在合理区间
+    const r = clamp(Math.sqrt(arr.length) * 3.2 + 5, 12, 62);
+    // 代表档位：取最多的那一档
+    let level = 'new';
+    let best = -1;
+    Object.keys(lv).forEach((k) => { if (lv[k] > best) { best = lv[k]; level = k; } });
+    out.push({ id: 'b:' + cid, rawId: cid, x, y, r, count: arr.length, level,
+               label: catLabel[cid] || '未分类' });
+  });
+  out.sort((a, b) => b.count - a.count);
+  return out;
+}
+
+/** 视口裁剪：这个点在当前视图里吗（带 margin，边缘不至于突然消失） */
+function inView(x, y, view, W, H, margin) {
+  const m = typeof margin === 'number' ? margin : 28;
+  const sx = x * view.scale + view.tx;
+  const sy = y * view.scale + view.ty;
+  return sx >= -m && sy >= -m && sx <= W + m && sy <= H + m;
 }
 
 /**
@@ -328,6 +400,7 @@ const LEVEL_COLOR = {
 };
 
 module.exports = {
-  layout, sectors, bounds, fitView, labelTier,
+  layout, sectors, bounds, fitView,
+  lodOf, lodText, blobsOf, inView, BLOB_MIN,
   hitTest, neighborsOf, radiusOf, LEVEL_COLOR, MAX_NOTES, trimNotes, clamp,
 };

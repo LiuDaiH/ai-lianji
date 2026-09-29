@@ -11,7 +11,7 @@
         <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 怎么看</view>
       </view>
     </view>
-    <view class="h-sub">点节点看内容 · 「☰ 清单」里点一条就能在图上定位 · 双指缩放 / 拖空白平移</view>
+    <view class="h-sub">点节点看内容 · 缩小会把大类别收成「带数字的圈」，点圈展开 · 双指缩放看细节</view>
     <view class="h-stats">
       <text class="hs-n">{{stats.notes}}</text><text class="hs-l">卡片</text>
       <text class="hs-sep">·</text>
