@@ -1,0 +1,95 @@
+<!-- pages/graph/graph.wxml -->
+<view class="container">
+
+  <view class="head">
+    <view class="h-title">知识图谱</view>
+    <view class="h-sub">单击看内容 · 双击类别只剩这一块 · 双指缩放 / 拖动画布 · 双击空白放大</view>
+    <view class="h-stats">
+      <text class="hs-n">{{stats.notes}}</text><text class="hs-l">卡片</text>
+      <text class="hs-sep">·</text>
+      <text class="hs-n">{{stats.cats}}</text><text class="hs-l">类别</text>
+      <text class="hs-sep">·</text>
+      <text class="hs-n">{{stats.links}}</text><text class="hs-l">条关联</text>
+    </view>
+    <view class="h-warn" wx:if="{{trimmed > 0}}">
+      卡片较多，图上只画了关联最多的 {{shown}} 张。点开类别，列表里仍是全部。
+    </view>
+  </view>
+
+  <view class="tools">
+    <view class="tool {{onlyLinked ? 'on' : ''}}" bindtap="onToggleFilter" hover-class="hover-dim">
+      {{onlyLinked ? '只看关联' : '显示全部'}}
+    </view>
+    <view class="tool" bindtap="onRelayout" hover-class="hover-dim">重排</view>
+    <view class="tool" bindtap="onFit" hover-class="hover-dim">适配</view>
+  </view>
+
+  <view class="cv-wrap">
+    <canvas type="2d" id="gcv" class="cv"
+            bindtouchstart="onTouchStart"
+            bindtouchmove="onTouchMove"
+            bindtouchend="onTouchEnd"
+            bindtouchcancel="onTouchEnd"></canvas>
+
+    <!-- 缩放档位：让"为什么有些字看不见"有个交代 -->
+    <view class="zoom-chip">{{zoomPct}}% · {{labelText}}</view>
+
+    <view class="zoomers">
+      <view class="zbtn" data-d="in" bindtap="onZoom" hover-class="hover-dim">＋</view>
+      <view class="zbtn" data-d="out" bindtap="onZoom" hover-class="hover-dim">−</view>
+    </view>
+
+    <view class="focus-chip" wx:if="{{focus}}" bindtap="onClearFocus" hover-class="hover-dim">
+      聚焦：{{focus.title}}<text class="fc-x">✕</text>
+    </view>
+
+    <view class="empty" wx:if="{{empty}}">还没有卡片，先去录入几张</view>
+  </view>
+
+  <!-- 图例 -->
+  <view class="legend">
+    <view class="lg" wx:for="{{legend}}" wx:key="label">
+      <view class="dot" style="background:{{item.color}}"></view>
+      <text>{{item.label}}</text>
+    </view>
+    <view class="lg"><view class="line solid"></view><text>卡片关联</text></view>
+    <view class="lg"><view class="line dash"></view><text>类别层级</text></view>
+  </view>
+
+  <!-- ============ 底部抽屉：点开就看有哪些卡片 ============ -->
+  <view class="sheet-mask" wx:if="{{sheet.show}}" bindtap="closeSheet"></view>
+  <view class="sheet" wx:if="{{sheet.show}}">
+    <view class="sh-grip"></view>
+    <view class="sh-head">
+      <view class="sh-title">{{sheet.title}}</view>
+      <view class="sh-sub">{{sheet.sub}}</view>
+    </view>
+
+    <view class="sh-ops">
+      <view class="sh-btn" wx:if="{{sheet.kind === 'cat'}}" bindtap="onToggleFocus" hover-class="hover-dim">
+        {{sheet.focusOn ? '退出聚焦' : '只看这一块'}}
+      </view>
+      <view class="sh-btn primary" wx:if="{{sheet.kind === 'note'}}" bindtap="onGoNote" hover-class="hover-dim">
+        打开卡片 ›
+      </view>
+      <view class="sh-btn ghost" bindtap="closeSheet" hover-class="hover-dim">收起</view>
+    </view>
+
+    <scroll-view scroll-y class="sh-list" style="height:{{sheet.listH}}px">
+      <view class="sh-item" wx:for="{{sheet.items}}" wx:key="id" data-id="{{item.id}}"
+            bindtap="onGoItem" hover-class="hover-dim">
+        <view class="sh-dot {{item.level}}"></view>
+        <view class="sh-body">
+          <view class="sh-name">{{item.title}}</view>
+          <view class="sh-meta">{{item.meta}}</view>
+        </view>
+        <view class="sh-go">›</view>
+      </view>
+      <view class="sh-none" wx:if="{{!sheet.items.length}}">
+        {{sheet.kind === 'cat' ? '这个类别下还没有卡片' : '这张卡还没有关联卡片'}}
+      </view>
+      <view class="sh-more" wx:if="{{sheet.more > 0}}">⋯ 还有 {{sheet.more}} 张没列出</view>
+    </scroll-view>
+  </view>
+
+</view>

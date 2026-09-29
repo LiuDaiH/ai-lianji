@@ -9,7 +9,8 @@
     "pages/quiz/quiz",
     "pages/detail/detail",
     "pages/categories/categories",
-    "pages/help/help"
+    "pages/help/help",
+    "pages/graph/graph"
   ],
   "window": {
     "backgroundTextStyle": "light",
