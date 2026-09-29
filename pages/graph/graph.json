@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "知识图谱",
-  "disableScroll": true
+  "disableScroll": true,
+  "usingComponents": {
+    "coach": "/components/coach/coach"
+  }
 }
