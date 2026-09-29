@@ -10,12 +10,12 @@
 //   · 密度自适应：类别按卡片数分扇区（utils/graph.js），标签按缩放分档
 //   · 聚焦：双击类别 → 只留这一块，其余淡出 + 自动居中放大
 //   · 抽屉：点类别列出它下面的卡片、点卡片列出它的关联卡片，都能直接点进详情
-//   · 动效：按下即放大、点击脉冲、视图平滑过渡、抽屉上滑，全部配轻震动
+//   · **反馈全部走视觉，不用震动**：按下即放大 + 外圈光晕、点击时脉冲波 + 回弹，
+//     选中节点的关联边加粗高亮，视图/淡入淡出/抽屉都是平滑过渡
 const store = require('../../utils/store.js');
 const cat = require('../../utils/category.js');
 const link = require('../../utils/link.js');
 const graphLib = require('../../utils/graph.js');
-const haptic = require('../../utils/haptic.js');
 
 const LW = 375, LH = 420;          // 逻辑尺寸（wxml 里 canvas 的尺寸与之对齐）
 const DRAG_THRESHOLD = 6;
@@ -23,7 +23,9 @@ const DBL_MS = 320;                // 双击判定窗口
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.8;
 const SHEET_CAP = 120;             // 抽屉一次最多列多少条
-const ROW_H = 58;                  // 抽屉里一行的估算高度（px，用来算列表高度）
+const ROW_H = 52;                  // 抽屉里一行的估算高度（px，用来算列表高度）
+const SHEET_LIST_MAX = 198;        // ⚠️ 抽屉别盖满画布 —— 上限压到 ~200px，上面始终留得下图
+const POP_MS = 320;                // 点击回弹时长
 
 const LEVEL_TEXT = { new: '未学', learning: '学习中', mastered: '已掌握' };
 
@@ -57,6 +59,7 @@ Page({
     this.moved = false;
     this.pinch = null;
     this.pulse = null;
+    this.pop = null;
     this._focus = null;
     this._lastTap = null;
     this._lastBlank = null;
@@ -65,11 +68,27 @@ Page({
   },
 
   onReady() {
-    this.initCanvas().then(() => this.build());
+    this.initCanvas().then(() => this.build(this.dataSig()));
   },
 
   onShow() {
-    if (this._ready) this.build();
+    if (!this._ready) return;
+    // ⚠️ 从卡片详情返回时**不要重建**：重建会把聚焦状态和你看好的视角一起清掉。
+    //    只有卡片数据真的变了（改了类别、练过一轮）才重排。
+    const sig = this.dataSig();
+    if (this._sig === sig && this.nodes.length) { this.draw(); return; }
+    this.build(sig);
+  },
+
+  /** 数据指纹：卡片数 + 每张卡的 id/复习次数/类别（够灵敏，又不至于每次拼一大串） */
+  dataSig() {
+    const all = store.listNotes();
+    let h = 0;
+    all.forEach((n) => {
+      const s = n.id + '|' + (n.categoryId || '') + '|' + (n.reviewCount || 0) + '|' + (n.alpha || 0) + (n.beta || 0);
+      for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0;
+    });
+    return all.length + ':' + h;
   },
 
   onUnload() {
@@ -77,12 +96,13 @@ Page({
     this._playing = false;
     this.viewTarget = null;
     this.pulse = null;
+    this.pop = null;
   },
 
   initCanvas() {
     return new Promise((resolve) => {
       wx.createSelectorQuery().select('#gcv')
-        .fields({ node: true, size: true })
+        .fields({ node: true, size: true, rect: true })
         .exec((res) => {
           if (!res || !res[0] || !res[0].node) {
             wx.showToast({ title: 'canvas 初始化失败', icon: 'none' });
@@ -95,6 +115,8 @@ Page({
             const i = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
             dpr = i.pixelRatio || 2;
           } catch (e) { dpr = 2; }
+          // canvas 在页面里的位置 —— 触摸事件万一不给 x/y，靠它换算
+          this._rect = { left: res[0].left || 0, top: res[0].top || 0 };
           this.canvas = cv;
           this.ctx = cv.getContext('2d');
           this.W = res[0].width || LW;
@@ -110,8 +132,9 @@ Page({
 
   /* ==================== 数据 + 布局 ==================== */
 
-  build() {
+  build(sig) {
     if (!this._ready) return;
+    this._sig = sig !== undefined ? sig : this.dataSig();
     const all = store.listNotes();
     const cats = cat.list();
     const s = link.summary(all, cats);
@@ -149,7 +172,9 @@ Page({
 
     const g = link.buildGraph(notes, cats);
     const out = graphLib.layout(g, this.W, this.H, {});
-    this.nodes = out.nodes.map((n) => Object.assign(n, { _a: 1 }));
+    // _g = 入场进度（0→1）：打开页面时节点依次弹出，别一上来就一坨静态点
+    this.nodes = out.nodes.map((n, i) => Object.assign(n, { _a: 1, _g: 0, _i: i }));
+    this._enterT0 = Date.now();
     this.edges = out.edges;
     this._idx = {};
     this.nodes.forEach((n) => { this._idx[n.id] = n; });
@@ -161,6 +186,7 @@ Page({
     this.view = v;
     this.viewTarget = null;
     this.pulse = null;
+    this.pop = null;
 
     this.closeSheet();
     this.setData({
@@ -170,6 +196,7 @@ Page({
       labelText: this.labelTextOf(),
     });
     this.draw();
+    this.play();          // 入场动画：节点依次弹出
   },
 
   labelTextOf() {
@@ -178,12 +205,10 @@ Page({
   },
 
   onToggleFilter() {
-    haptic.tap();
     this.setData({ onlyLinked: !this.data.onlyLinked }, () => this.build());
   },
 
   onRelayout() {
-    haptic.tap();
     wx.showLoading({ title: '重新排布中' });
     setTimeout(() => {
       this.build();
@@ -192,7 +217,6 @@ Page({
   },
 
   onFit() {
-    haptic.tap();
     if (!this.nodes.length) return;
     this.viewTarget = graphLib.fitView(this.nodes, this.W, this.H, { pad: 34 });
     this.play();
@@ -202,7 +226,6 @@ Page({
 
   onZoom(e) {
     const d = e.currentTarget.dataset.d;
-    haptic.tap();
     if (d === 'fit') { this.onFit(); return; }
     this.zoomAt(this.W / 2, this.H / 2, d === 'in' ? 1.28 : 1 / 1.28);
   },
@@ -244,14 +267,12 @@ Page({
   },
 
   onClearFocus() {
-    haptic.tap();
     this.setFocus(null);
   },
 
   onToggleFocus() {
     const s = this.data.sheet;
     if (s.kind !== 'cat') return;
-    haptic.tap();
     const on = this.data.focus && this.data.focus.id === s.rawId;
     this.setFocus(on ? null : s.rawId);
     this.setData({
@@ -318,7 +339,24 @@ Page({
       } else more = true;
     }
 
-    // ③ 点击脉冲
+    // ③ 入场：节点依次放大淡入（错峰，看起来是"长出来"的）
+    if (this._enterT0) {
+      const el = Date.now() - this._enterT0;
+      let pending = false;
+      for (let i = 0; i < this.nodes.length; i += 1) {
+        const n = this.nodes[i];
+        const delay = Math.min(i * 5, 400);              // 错峰但总时长封顶
+        const k = Math.min(1, Math.max(0, (el - delay) / 420));
+        n._g = 1 - Math.pow(1 - k, 3);                   // ease-out
+        if (k < 1) pending = true;
+      }
+      if (!pending) this._enterT0 = null;
+      else more = true;
+    }
+
+    // ④ 点击回弹 + 脉冲波（视觉反馈，替代震动）
+    if (this.pop && (Date.now() - this.pop.t0) / POP_MS >= 1) this.pop = null;
+    if (this.pop) more = true;
     if (this.pulse) {
       if ((Date.now() - this.pulse.t0) / 440 >= 1) this.pulse = null;
       else more = true;
@@ -353,6 +391,8 @@ Page({
     const idx = this._idx;
     const selId = this.selId;
     const tier = graphLib.labelTier(this.view.scale, this.nodes.length);
+    // 统一可见度 = 聚焦淡出(_a) × 入场进度(_g)
+    const visOf = (n) => (typeof n._a === 'number' ? n._a : 1) * (typeof n._g === 'number' ? n._g : 1);
 
     // ---- 边 ----
     // 选中某张卡时，它的关联边加粗高亮，其余降一档，关系一眼可见
@@ -368,7 +408,7 @@ Page({
     this.edges.forEach((e) => {
       const a = idx[e.a], b = idx[e.b];
       if (!a || !b) return;
-      const alpha = Math.min(a._a, b._a, 1);
+      const alpha = Math.min(visOf(a), visOf(b), 1);
       if (alpha < 0.08) return;
       const hot = selId && (e.a === selId || e.b === selId);
 
@@ -400,13 +440,19 @@ Page({
 
     // ---- 节点 ----
     this.nodes.forEach((n) => {
-      const a = typeof n._a === 'number' ? n._a : 1;
+      const a = visOf(n);
       if (a < 0.08) return;
+      const enter = 0.32 + 0.68 * (typeof n._g === 'number' ? n._g : 1);   // 入场时从小长到大
       const pressed = this.pressed === n;
       const sel = selId === n.id;
-      let r = graphLib.radiusOf(n);
+      let r = graphLib.radiusOf(n) * enter;
       if (pressed) r *= 1.3;
       else if (sel) r *= 1.2;
+      // 点击回弹：先鼓一下再收回（sin 曲线，比单纯放大更"有弹性"）
+      if (this.pop && this.pop.node === n) {
+        const k = Math.min(1, (Date.now() - this.pop.t0) / POP_MS);
+        r *= 1 + 0.42 * Math.sin(Math.PI * k);
+      }
 
       ctx.globalAlpha = a;
 
@@ -455,8 +501,8 @@ Page({
     // ---- 标签（带浅色描边，压在连线/节点上也看得清）----
     ctx.textAlign = 'center';
     this.nodes.forEach((n) => {
-      const a = typeof n._a === 'number' ? n._a : 1;
-      if (a < 0.5) return;                       // 淡出的节点不写标签
+      const a = visOf(n);
+      if (a < 0.5) return;                       // 淡出 / 还没入场完的节点不写标签
       const isSel = selId === n.id || this.pressed === n;
       const show = n.type === 'cat' ? true : (tier === 2 || isSel);
       if (!show) return;
@@ -480,6 +526,28 @@ Page({
 
   /* ==================== 触摸 ==================== */
 
+  /**
+   * 触摸点 → canvas 坐标系
+   *
+   * ⚠️ canvas 的触摸事件通常带 `touches[i].x/y`（相对 canvas 左上角），但**不是所有环境都给**。
+   * 老代码直接读 `.x`，一旦拿不到就是 undefined → hitTest 永远落空 → "点了没反应"。
+   * 这里做兜底：没有 x/y 就用 clientX/clientY 减去 canvas 的位置自己算。
+   */
+  pt(t) {
+    if (t && typeof t.x === 'number' && typeof t.y === 'number') return { x: t.x, y: t.y };
+    const r = this._rect || { left: 0, top: 0 };
+    const cx = (t && (t.clientX != null ? t.clientX : t.pageX)) || 0;
+    const cy = (t && (t.clientY != null ? t.clientY : t.pageY)) || 0;
+    return { x: cx - r.left, y: cy - r.top };
+  },
+
+  ptsOf(e) {
+    const out = [];
+    const ts = (e && e.touches) || [];
+    for (let i = 0; i < ts.length; i += 1) out.push(this.pt(ts[i]));
+    return out;
+  },
+
   toLocal(t) {
     // 触摸坐标 → 图谱坐标
     return {
@@ -489,7 +557,8 @@ Page({
   },
 
   onTouchStart(e) {
-    const ts = e.touches;
+    const ts = this.ptsOf(e);
+    if (!ts.length) return;
     this.moved = false;
     if (ts.length >= 2) {
       const d = Math.hypot(ts[0].x - ts[1].x, ts[0].y - ts[1].y);
@@ -515,7 +584,6 @@ Page({
       this.panFrom = null;
       this.viewTarget = null;
       this.draw();                 // 手指一按就变大 —— 别等抬手才给反馈
-      haptic.tap();
     } else {
       this.dragging = null;
       this.pressed = null;
@@ -525,7 +593,8 @@ Page({
   },
 
   onTouchMove(e) {
-    const ts = e.touches;
+    const ts = this.ptsOf(e);
+    if (!ts.length) return;
     if (ts.length >= 2 && this.pinch) {
       const d = Math.hypot(ts[0].x - ts[1].x, ts[0].y - ts[1].y);
       const m = { x: (ts[0].x + ts[1].x) / 2, y: (ts[0].y + ts[1].y) / 2 };
@@ -565,6 +634,9 @@ Page({
     this.dragging = null;
     this.panFrom = null;
     this.pinch = null;
+    // 抬手时也把缩放读数刷一下（捏合过程中不 setData，免得刷爆）
+    const zp = Math.round(this.view.scale * 100);
+    if (zp !== this.data.zoomPct) this.setData({ zoomPct: zp, labelText: this.labelTextOf() });
 
     if (moved) { this.draw(); return; }
 
@@ -576,10 +648,10 @@ Page({
       else if (this.data.focus) this.setFocus(null);
 
       const now = Date.now();
-      const t = (e && e.changedTouches && e.changedTouches[0]) || null;
-      if (this._lastBlank && now - this._lastBlank.t < DBL_MS && t) {
+      const ct = (e && e.changedTouches && e.changedTouches[0]) || null;
+      if (this._lastBlank && now - this._lastBlank.t < DBL_MS && ct) {
         this._lastBlank = null;
-        const p = { x: t.x, y: t.y };
+        const p = this.pt(ct);
         this.zoomAt(p.x, p.y, 1.45);
       } else {
         this._lastBlank = { t: now };
@@ -596,14 +668,18 @@ Page({
     const last = this._lastTap;
     const dbl = !!(last && last.id === node.id && now - last.t < DBL_MS);
 
+    // 视觉反馈三连：回弹（pop）+ 脉冲波 + 选中高亮。**不用震动。**
+    this.pop = { node, t0: now };
     this.pulse = { node, t0: now };
     this.selId = node.id;
-    // 震动在 touchstart 按下时已经给过了，这里不再震第二次
 
     if (dbl) {
       this._lastTap = null;
       if (node.type === 'cat') {
         const on = this.data.focus && this.data.focus.id === node.rawId;
+        // ⚠️ 双击的意图是"我要看清楚这一块" —— 必须把抽屉收掉，
+        //    否则它正好盖住你要看的东西，看起来就像"点了没用"
+        this.hideSheet();
         this.setFocus(on ? null : node.rawId);
         wx.showToast({ title: on ? '已退出聚焦' : '只看「' + node.label + '」', icon: 'none' });
       } else {
@@ -620,6 +696,11 @@ Page({
   },
 
   /* ==================== 底部抽屉 ==================== */
+
+  /** 只收起抽屉，保留选中（双击聚焦时用） */
+  hideSheet() {
+    if (this.data.sheet.show) this.setData({ 'sheet.show': false });
+  },
 
   closeSheet() {
     this.selId = null;
@@ -655,7 +736,7 @@ Page({
         title: node.label, total: inside.length,
         sub: inside.length + ' 张卡片' + (on ? ' · 聚焦中' : ''),
         items, more: Math.max(0, inside.length - items.length), focusOn: on,
-        listH: Math.min(330, Math.max(96, items.length * ROW_H)),
+        listH: Math.min(SHEET_LIST_MAX, Math.max(96, items.length * ROW_H)),
       },
     });
   },
@@ -694,7 +775,7 @@ Page({
         sub: (LEVEL_TEXT[level] || '') + ' · 练过 ' + (note.reviewCount || 0) + ' 次 · '
              + items.length + ' 条关联',
         items, more: 0, focusOn: false,
-        listH: Math.min(330, Math.max(96, Math.max(1, items.length) * ROW_H)),
+        listH: Math.min(SHEET_LIST_MAX, Math.max(96, Math.max(1, items.length) * ROW_H)),
       },
     });
   },
@@ -711,7 +792,6 @@ Page({
 
   openNote(id) {
     if (!id) return;
-    haptic.tap();
     wx.navigateTo({ url: '/pages/detail/detail?id=' + id });
   },
 });

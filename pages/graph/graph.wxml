@@ -3,7 +3,7 @@
 
   <view class="head">
     <view class="h-title">知识图谱</view>
-    <view class="h-sub">单击看内容 · 双击类别只剩这一块 · 双指缩放 / 拖动画布 · 双击空白放大</view>
+    <view class="h-sub">点节点看里面的卡片 · 双击类别只看这一块 · 双指缩放 / 拖空白平移</view>
     <view class="h-stats">
       <text class="hs-n">{{stats.notes}}</text><text class="hs-l">卡片</text>
       <text class="hs-sep">·</text>
