@@ -4,7 +4,7 @@
 <view class="container">
 
   <!-- ============ 创新点横幅 ============ -->
-  <view class="banner" id="obbanner">
+  <view class="banner {{anim ? 'anim' : ''}}" id="obbanner">
     <view class="bn-badge">核心创新点</view>
     <view class="bn-title">Obsidian ⇄ 知识卡片</view>
     <view class="bn-sub">
@@ -18,22 +18,24 @@
         <view class="lb-ico">📁</view>
         <view class="lb-t">Obsidian<br/>vault</view>
       </view>
-      <view class="loop-mid">
-        <view class="lm-line"></view>
-        <view class="lm-txt">.md</view>
+      <view class="loop-mid dual">
+        <view class="dual-item">
+          <view class="lm-line"></view>
+          <view class="lm-txt">.md 导入</view>
+        </view>
+        <view class="dual-item">
+          <view class="lm-line back"></view>
+          <view class="lm-txt">掌握度回写</view>
+        </view>
       </view>
       <view class="loop-box hot">
         <view class="lb-ico">📇</view>
         <view class="lb-t">知识卡片<br/>小程序</view>
       </view>
-      <view class="loop-mid">
-        <view class="lm-line back"></view>
-        <view class="lm-txt">掌握度</view>
-      </view>
     </view>
 
     <view class="loop-note">
-      ← 导入笔记，自动切成卡片；练完之后，每个标题下面会多一行掌握度标注 →
+      上面一条：导入笔记，自动切成卡片；下面一条：练完后掌握度写回每个标题
     </view>
   </view>
 
@@ -64,6 +66,16 @@
     <view class="subtle sync-tip" wx:elif="{{syncStats.nodes === 0}}">
       已导入笔记，但还没学出可回写的标题。先去「复习 / 小测」练几轮。
     </view>
+  </view>
+
+  <!-- ============ 知识图谱入口 ============ -->
+  <view class="card graph-entry" id="obgraph" bindtap="onGoGraph" hover-class="hover-dim">
+    <view class="ge-ico">🌐</view>
+    <view class="ge-body">
+      <view class="ge-t">知识图谱</view>
+      <view class="ge-sub">笔记里写的 [[链接]] 会连成一张网 —— 看看哪些知识点其实是一伙的</view>
+    </view>
+    <view class="ge-arrow">›</view>
   </view>
 
   <view class="seg-tabs" id="obtabs">
@@ -132,7 +144,7 @@
 
       <view class="sec tree-sec">类别树预览</view>
       <scroll-view scroll-y class="tree-preview">
-        <view class="tp-row" wx:for="{{rows}}" wx:key="index" style="padding-left:{{item.depth * 22}}rpx">
+        <view class="tp-row" wx:for="{{rows}}" wx:key="index" style="padding-left:{{(item.depth > 7 ? 7 : item.depth) * 22}}rpx">
           <view class="tp-dash"></view>
           <text class="tp-name">{{item.name}}</text>
         </view>
@@ -156,12 +168,14 @@
     <view class="card hero">
       <view class="hero-title">把掌握度写回 Obsidian</view>
       <view class="hero-sub">
-        每个标题下面会被插一条 Obsidian 原生高亮块，颜色直接表示掌握程度：
+        每个标题下面插一条 Obsidian 原生高亮块并带上 <text class="mono">#掌握度</text> 标签，
+        文件头部写 <text class="mono">study_*</text> 字段 —— 颜色直接表示掌握程度：
       </view>
       <view class="demo">
         <view class="demo-h">## 梯度下降与学习率</view>
         <view class="demo-c">
           <text class="dc-tag">[!success]</text> 掌握度 82% · 复习 5 次 · 下次 9/23
+          <text class="dc-tag2">#掌握度/已掌握</text>
         </view>
       </view>
       <view class="levels">
@@ -170,7 +184,33 @@
         <view class="lv"><view class="lv-dot d-weak"></view>🟠 薄弱</view>
         <view class="lv"><view class="lv-dot d-new"></view>⚪ 未学</view>
       </view>
-      <view class="subtle hero-foot">反复导出不会堆积标记：每次都会先清掉上一次写的，再重新插入。</view>
+      <view class="demo demo-fm">
+        <view class="demo-h">┄ 文件头部（YAML frontmatter）</view>
+        <view class="demo-c">study_mastery: 62 · study_state: 学习中 · study_reviews: 34</view>
+      </view>
+      <view class="subtle hero-foot">
+        标题下面写高亮块和 <text class="mono">#掌握度/xx</text> 标签，文件头写 <text class="mono">study_*</text> 字段 ——
+        前者给人一眼扫过，后者给 Dataview 查询。反复导出不会堆积标记。
+      </view>
+    </view>
+
+    <!-- ============ 待复习清单 ============ -->
+    <view class="card">
+      <view class="sec">待复习清单</view>
+      <view class="subtle">
+        把到期该练的卡片列成一份 .md：每条都是 <text class="mono">[[笔记#标题]]</text>，
+        在 Obsidian 里点一下直接跳到原笔记，不用自己翻。
+      </view>
+      <view class="todo-flow">
+        <view class="tf-i">📝 生成清单</view>
+        <view class="tf-a">→</view>
+        <view class="tf-i">💻 放进 vault</view>
+        <view class="tf-a">→</view>
+        <view class="tf-i">👆 点链接复习</view>
+      </view>
+      <view hover-class="hover-dim" class="btn-primary mt" bindtap="onExportTodo">
+        📝 生成待复习清单 .md
+      </view>
     </view>
 
     <view class="card">

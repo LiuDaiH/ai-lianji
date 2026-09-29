@@ -31,6 +31,7 @@ Page({
     syncStats: { files: 0, linked: 0, nodes: 0, total: 0 },
     steps: [],
     showIntro: false,
+    anim: false,
   },
 
   onLoad() {
@@ -41,6 +42,9 @@ Page({
   onIntroClose() { this.setData({ showIntro: false }); },
 
   onShow() {
+    // 每次进入本页都重播 banner 的依次入场动画（先关再开，强制重播）
+    this.setData({ anim: false });
+    setTimeout(() => this.setData({ anim: true }), 30);
     this.refreshSources();
     // 首次进入这个板块时自动走一遍引导
     if (!wx.getStorageSync('sc_tour_done_obsidian')) this.setData({ tourActive: true, tourFlow: 'obsidian' });
@@ -146,6 +150,14 @@ Page({
     const tree = fs.paths2tree(cards.map((c) => c.catPath));
     this._raw = { parsed, cards, collected };
 
+    // 统计「有标题但没正文」的节点 —— 这些不会出卡，要如实告诉用户
+    let emptyNodes = 0;
+    let headings = 0;
+    parsed.files.forEach((p) => {
+      emptyNodes += fs.countEmptyNodes(p.root);
+      headings += fs.countHeadings(p.root);
+    });
+
     this.setData({
       busy: false,
       preview: {
@@ -154,6 +166,8 @@ Page({
         skipped,
         cards: cards.length,
         cats: parsed.categories.length,
+        headings,
+        emptyNodes,
       },
       rows: previewRows(tree, 0, [], MAX_PREVIEW_ROWS),
     });
@@ -213,6 +227,8 @@ Page({
         content: c.content,
         tags: c.tags || [],
         categoryId: r.id || null,
+        // lineNo: 该卡片在源文件里的行号 —— 回写定位与 [[文件名]] 匹配都要用
+        lineNo: typeof c.lineNo === 'number' ? c.lineNo : null,
         src: { file: c.file, nodePath: c.nodePath },
       });
     });
@@ -240,6 +256,19 @@ Page({
   },
 
   /* ==================== 回写 ==================== */
+
+  /** 每个来源文件的 study_* 字段（写进 frontmatter，装了 Dataview 就能直接查） */
+  buildFileAgg() {
+    const notes = store.listNotes();
+    const buckets = {};
+    notes.forEach((n) => {
+      if (!n.src || !n.src.file) return;
+      (buckets[n.src.file] = buckets[n.src.file] || []).push(n);
+    });
+    const out = {};
+    Object.keys(buckets).forEach((f) => { out[f] = fs.frontFields(buckets[f]); });
+    return out;
+  },
 
   /** 把卡片按「来源文件 → 标题路径」聚合，算出每个标题的掌握度 */
   buildMarkMap() {
@@ -279,6 +308,7 @@ Page({
       return;
     }
     this._markMap = this.buildMarkMap();
+    this._fileAgg = this.buildFileAgg();
     const hits = sources.map((s) => {
       const m = (this._markMap[s.relPath] || {});
       const n = Object.keys(m).length;
@@ -316,7 +346,8 @@ Page({
     }
     const src = this._queue.shift();
     const marks = (this._markMap && this._markMap[src.relPath]) || {};
-    const res = fs.annotate(src.text, marks, {});
+    const front = (this._fileAgg && this._fileAgg[src.relPath]) || null;
+    const res = fs.annotate(src.text, marks, { front });
     const name = fs.baseName(src.relPath);
     const path = wx.env.USER_DATA_PATH + '/' + name;
 
@@ -353,7 +384,59 @@ Page({
     });
   },
 
-  /* ==================== 汇总报告 ==================== */
+  /* ==================== 汇总报告 / 待复习清单 ==================== */
+
+  /** 单文件出口：写盘 → 分享面板 → 面板不可用就降级剪贴板（报告与待复习清单共用） */
+  shareOne(name, text, tip) {
+    const path = wx.env.USER_DATA_PATH + '/' + name;
+    try {
+      wx.getFileSystemManager().writeFileSync(path, text, 'utf8');
+    } catch (e) {
+      wx.showModal({ title: '写入失败', content: String(e && e.message || e), showCancel: false });
+      return;
+    }
+    wx.shareFileMessage({
+      filePath: path,
+      fileName: name,
+      success: () => wx.showToast({ title: tip || '已发出', icon: 'success' }),
+      fail: () => wx.setClipboardData({
+        data: text,
+        success: () => wx.showModal({
+          title: '已复制到剪贴板',
+          content: '分享面板不可用，「' + name + '」全文已复制，粘贴进 Obsidian 即可。',
+          showCancel: false,
+        }),
+      }),
+    });
+  },
+
+  /**
+   * 生成「待复习清单.md」
+   * 和上面两个导出的区别：那两份是「复习完之后写回笔记」，这一份是「复习之前告诉你该练什么」。
+   * 每条都是 [[文件#标题]]，在 Obsidian 里点一下直接跳到原笔记。
+   */
+  onExportTodo() {
+    const notes = store.listNotes();
+    if (!notes.length) {
+      wx.showModal({ title: '还没有卡片', content: '先导入笔记或自建几张卡片，这份清单才有内容。', showCancel: false });
+      return;
+    }
+    const linked = notes.filter((n) => n.src && n.src.file).length;
+    if (!linked) {
+      wx.showModal({
+        title: '没有可跳转的原笔记',
+        content: '这份清单靠「每张卡的出处」生成 [[笔记#标题]] 链接。你现在的卡片都不是从 Obsidian 导入的，导出的清单会没有任何链接。先去「导入」搬一份笔记进来。',
+        showCancel: false,
+      });
+      return;
+    }
+    const text = fs.dueList(notes, { days: 7 });
+    const name = 'study-todo-' + new Date().toISOString().slice(0, 10) + '.md';
+    this.shareOne(name, text, '清单已发出 · ' + linked + ' 张卡有出处');
+  },
+
+  /** 看知识图谱（Obsidian 笔记之间的 [[]] 连成了什么形状） */
+  onGoGraph() { wx.navigateTo({ url: '/pages/graph/graph' }); },
 
   onExportReport() {
     const notes = store.listNotes();
@@ -380,27 +463,7 @@ Page({
     const overall = fs.aggregate(notes);
     const text = fs.report(decorate(nested), overall, { title: '知识卡片掌握度报告' });
     const name = 'study-report-' + new Date().toISOString().slice(0, 10) + '.md';
-    const path = wx.env.USER_DATA_PATH + '/' + name;
-
-    try {
-      wx.getFileSystemManager().writeFileSync(path, text, 'utf8');
-    } catch (e) {
-      wx.showModal({ title: '写入失败', content: String(e && e.message || e), showCancel: false });
-      return;
-    }
-
-    wx.shareFileMessage({
-      filePath: path,
-      fileName: name,
-      success: () => wx.showToast({ title: '报告已发出', icon: 'success' }),
-      fail: () => wx.setClipboardData({
-        data: text,
-        success: () => wx.showModal({
-          title: '已复制到剪贴板', content: '分享面板不可用，报告全文已复制，粘贴进 Obsidian 即可。',
-          showCancel: false,
-        }),
-      }),
-    });
+    this.shareOne(name, text, '报告已发出');
   },
 
   onClearSources() {
@@ -422,17 +485,30 @@ Page({
       '3. 小程序 → 本页 → 「从聊天选文件」；',
       '4. 看预览的类别树，确认无误后导入。',
       '',
-      '## 回写',
-      '1. 小程序里用「复习 / 小测」练几轮；',
-      '2. 回到本页 → 「导出带掌握度的 .md」；',
-      '3. 每弹一次分享面板发一个文件，发到「文件传输助手」；',
-      '4. 电脑上把收到的文件覆盖回 vault。',
+      '## 复习前：拿到「今天该练什么」',
+      '1. 本页 →「生成待复习清单 .md」→ 发到「文件传输助手」；',
+      '2. 收到后放进 vault，打开它 —— 每条都是 [[笔记#标题]]，点一下就跳到原笔记；',
+      '3. 在笔记里回忆一遍，再回小程序「复习 / 小测」练一轮。',
       '',
-      '掌握度会以 Obsidian 原生高亮块写回每个标题下面：',
-      '> [!success] 掌握度 82% · 复习 5 次 · 下次 9/23',
+      '## 复习后：把掌握度写回笔记',
+      '1. 本页 →「导出带掌握度的 .md」；',
+      '2. 每弹一次分享面板发一个文件，发到「文件传输助手」；',
+      '3. 电脑上把收到的文件覆盖回 vault。',
       '',
+      '写回去的东西有三样：',
+      '① 每个标题下面一条 Obsidian 原生高亮块：',
+      '> [!success] 掌握度 82% · 复习 5 次 · 下次 9/23  #掌握度/已掌握',
       '绿色=已掌握 / 蓝色=学习中 / 橙色=薄弱 / 灰色=未学，一眼能看出哪节没吃透。',
-      '反复导出不会堆积标记 —— 每次都会先清掉上一次的再写。',
+      '② 行尾的 #掌握度/xx 标签 —— 在 Obsidian 的「标签」面板里点一下，就能列出所有薄弱章节；',
+      '③ 文件头部的 study_* 字段（掌握度 / 卡片数 / 复习次数 / 下次到期 / 更新时间），',
+      '   装了 Dataview 就能直接查：',
+      '   ```dataview',
+      '   TABLE study_mastery AS "掌握度", study_state AS "状态"',
+      '   FROM #study SORT study_mastery ASC',
+      '   ```',
+      '',
+      '反复导出不会堆积标记：每次都会先清掉上一次写的，再重新插入。',
+      '带着标注的笔记再导入一次也没问题 —— 那些标注行会被自动忽略，不会变成卡片。',
     ].join('\n');
     wx.setClipboardData({ data: text, success: () => wx.showToast({ title: '流程已复制', icon: 'none' }) });
   },

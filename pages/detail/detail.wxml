@@ -76,6 +76,68 @@
         </block>
       </view>
 
+      <!-- ============ 关联卡片（链） ============ -->
+      <view class="card">
+        <view class="lk-head">
+          <view class="title">关联卡片</view>
+          <view class="lk-graph" bindtap="onGoGraph" hover-class="hover-dim">看图谱 ›</view>
+        </view>
+
+        <view class="lk-sec" wx:if="{{outLinks.length}}">
+          <view class="lk-label">这张卡提到了</view>
+          <view class="lk-item" wx:for="{{outLinks}}" wx:key="id" data-id="{{item.id}}"
+                bindtap="onGoNote" hover-class="hover-dim">
+            <view class="lk-dot out"></view>
+            <view class="lk-body">
+              <view class="lk-trow">
+                <view class="lk-title">{{item.title}}</view>
+                <text class="lk-badge" wx:if="{{item.embed}}">嵌入</text>
+              </view>
+              <view class="lk-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
+            </view>
+            <view class="lk-arrow">›</view>
+          </view>
+        </view>
+
+        <view class="lk-more" wx:if="{{outMore > 0}}">还有 {{outMore}} 张没显示（在图谱里能看全）</view>
+
+        <view class="lk-sec" wx:if="{{backLinks.length}}">
+          <view class="lk-label">这些卡提到了它</view>
+          <view class="lk-item" wx:for="{{backLinks}}" wx:key="id" data-id="{{item.id}}"
+                bindtap="onGoNote" hover-class="hover-dim">
+            <view class="lk-dot back"></view>
+            <view class="lk-body">
+              <view class="lk-title">{{item.title}}</view>
+              <view class="lk-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
+            </view>
+            <view class="lk-arrow">›</view>
+          </view>
+        </view>
+
+        <view class="lk-more" wx:if="{{backMore > 0}}">还有 {{backMore}} 张没显示</view>
+
+        <view class="lk-sec" wx:if="{{mentions.length}}">
+          <view class="lk-label hint-l">正文里提到了这些卡片，但还没建立关联</view>
+          <view class="lk-sug" wx:for="{{mentions}}" wx:key="id">
+            <view class="lk-sug-body">
+              <view class="lk-title">{{item.title}}</view>
+              <view class="lk-sub">出现 {{item.count}} 次</view>
+            </view>
+            <view class="lk-btn" data-id="{{item.id}}" catchtap="onMakeLink" hover-class="hover-dim">建立关联</view>
+          </view>
+        </view>
+
+        <view class="lk-none" wx:if="{{!outLinks.length && !backLinks.length && !mentions.length}}">
+          <view>这张卡还没有任何关联</view>
+          <view class="subtle">在正文里写 <text class="mono">[[另一张卡的标题]]</text> 就能建立关联</view>
+          <view class="subtle">Obsidian 的写法也认：<text class="mono">[[文件#标题]]</text>、<text class="mono">![[嵌入]]</text>、<text class="mono">[[文件#^块id]]</text></view>
+        </view>
+
+        <view class="lk-tip" wx:if="{{linkGap > 0}}">
+          另有 {{linkGap}} 张卡的正文提到了本卡标题 —— 打开那些卡时会看到「建立关联」提示
+        </view>
+      </view>
+
       <!-- ============ 这张卡能出什么题 ============ -->
       <view class="card" wx:if="{{ability}}">
         <view class="title">这张卡能出什么题</view>

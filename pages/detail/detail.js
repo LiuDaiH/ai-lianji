@@ -4,6 +4,7 @@ const scheduler = require('../../utils/scheduler.js');
 const quizLib = require('../../utils/quiz.js');
 const cat = require('../../utils/category.js');
 const quizcheck = require('../../utils/quizcheck.js');
+const link = require('../../utils/link.js');
 
 Page({
   data: {
@@ -15,6 +16,8 @@ Page({
     // 调度解释
     showWhy: false, why: null, whyTip: '',
     ability: null,
+    outLinks: [], backLinks: [], mentions: [], linkGap: 0,
+    outMore: 0, backMore: 0, mentionMore: 0,
   },
 
   onLoad(options) { this.noteId = options.id; },
@@ -52,8 +55,74 @@ Page({
       catOptions: opts, catIndex: idx, catText: opts[idx].label,
       track: tk.seq, trackMax: tk.max, trackTip: tip,
       ability: note ? quizcheck.diagnose(note.title, note.content, store.listNotes().length) : null,
+      ...this.computeLinks(note),
     });
   },
+
+  /** 计算这张卡的关联：出链 / 反向链接 / 未链接提及 */
+  computeLinks(note) {
+    if (!note) return { outLinks: [], backLinks: [], mentions: [], linkGap: 0 };
+    const all = store.listNotes();
+    const byId = {};
+    all.forEach((n) => { byId[n.id] = n; });
+    const outLinks = link.outLinkDetail(all, note).map((d) => {
+      const n = byId[d.id];
+      if (!n) return null;
+      return {
+        id: n.id, title: n.title,
+        // ![[X]] 是 Obsidian 的「嵌入」，和普通 [[]] 一样是链接，但显示方式不同 → 标出来
+        embed: !!d.embed,
+        sub: n.content ? link.stripLinkMarks(n.content).slice(0, 26) : '',
+      };
+    }).filter(Boolean);
+    const backLinks = link.backLinks(all, note.id).map((n) => ({
+      id: n.id, title: n.title,
+      sub: n.content ? link.stripLinkMarks(n.content).slice(0, 26) : '',
+    }));
+    const mentions = link.unlinkedMentions(all, note, 6);
+    const linkedTitles = {};
+    link.parseLinkTitles(note.content).forEach((t) => { linkedTitles[t] = true; });
+    const gap = all.filter((n) => n.id !== note.id && n.title && !linkedTitles[n.title]
+      && String(n.content || '').indexOf(note.title) >= 0).length;
+    // 手机上别一次铺太多：每块最多 4 条，其余给出「还有 N 条」
+    const CAP = 4;
+    return {
+      outLinks: outLinks.slice(0, CAP),
+      backLinks: backLinks.slice(0, CAP),
+      mentions: mentions.slice(0, CAP),
+      outMore: Math.max(0, outLinks.length - CAP),
+      backMore: Math.max(0, backLinks.length - CAP),
+      mentionMore: Math.max(0, mentions.length - CAP),
+      linkGap: gap,
+    };
+  },
+
+  /** 把正文里提到的某张卡，一键变成 [[链接]] */
+  onMakeLink(e) {
+    const id = e.currentTarget.dataset.id;
+    const all = store.listNotes();
+    const target = all.filter((n) => n.id === id)[0];
+    const note = this.data.note;
+    if (!target || !note) return;
+    const newContent = link.makeLink(note.content, target.title);
+    if (newContent === note.content) {
+      wx.showToast({ title: '没能找到可替换的位置', icon: 'none' });
+      return;
+    }
+    const updated = store.updateNote(this.noteId, { content: newContent });
+    this.setData({ note: updated }, () => {
+      this.setData(this.computeLinks(updated));
+    });
+    wx.showToast({ title: '已建立关联', icon: 'success' });
+  },
+
+  /** 点关联卡片 → 跳转 */
+  onGoNote(e) {
+    wx.navigateTo({ url: '/pages/detail/detail?id=' + e.currentTarget.dataset.id });
+  },
+
+  /** 看图谱 */
+  onGoGraph() { wx.navigateTo({ url: '/pages/graph/graph' }); },
 
   // ---------- 调度解释 ----------
   onToggleWhy() {

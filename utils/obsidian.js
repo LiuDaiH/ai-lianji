@@ -9,7 +9,9 @@
 //         → 建类别树 + 卡片，并把「原文件全文」留在本地供回写
 //
 //   回写  学习数据（alpha/beta/reviewCount/dueAt）
-//         → annotate()  在原 md 每个标题后插入 Obsidian 高亮块
+//         → annotate()  在原 md 每个标题后插入 Obsidian 高亮块 + #掌握度/xx 标签，
+//                       并把 study_* 字段写回 YAML frontmatter（可被 Dataview 查询）
+//         → dueList()   生成「待复习清单.md」，每条是 [[文件#标题]]，回 Obsidian 点得开
 //         → report()    额外生成一份汇总报告
 //         → wx.shareFileMessage 发到聊天 → 电脑上覆盖回 vault
 //
@@ -17,6 +19,7 @@
 //   ① 标题行 → 节点，「节点路径」= 祖先标题数组，回写时靠它精确定位
 //   ② 导入时把每张卡片的节点路径写进 note.src，回写才有依据
 //   ③ annotate 是**幂等**的：会先删掉上一次插入的标记再重插，反复导出不会堆积
+//   ④ 导入时先 stripMarks() 去掉上一轮写下的高亮块 —— 否则那行会被当成正文切成卡片
 
 const stats = require('./stats.js');
 
@@ -72,6 +75,25 @@ function splitFrontmatter(text) {
   if (!m) return { front: '', body: text || '' };
   return { front: m[1], body: String(text).slice(m[0].length) };
 }
+
+/* ==================== ⓪ 上一次回写留下的标记行 ==================== */
+
+/**
+ * 上一轮回写插进去的高亮块（含我们追加的 #掌握度/xx 标签）
+ *
+ * ⚠️ 这是一个**闭环陷阱**：回写把标记插在标题下面，那行就落在标题的正文里；
+ *    如果用户带着标注的笔记再导入一次，这行会被当成正文，变成一张「掌握度 82% …」的卡片。
+ *    所以解析前必须先把它清掉。
+ */
+const MARK_RE = /^\s*>\s*\[!\w+\]\s*(?:掌握度\s|尚未学习|已掌握|学习中|薄弱|未学)/;
+
+function stripMarks(text) {
+  return String(text || '').split(/\r?\n/).filter((l) => !MARK_RE.test(l)).join('\n');
+}
+
+/** 掌握度 → Obsidian 原生标签（用户能在标签面板里按它筛选） */
+const TAG_ROOT = '掌握度';
+function tierTag(label) { return '#' + TAG_ROOT + '/' + label; }
 
 /* ==================== ① 扫描：切出「标题」与「正文」两类 token ==================== */
 
@@ -194,7 +216,8 @@ function walkCards(root, out) {
 function parseMarkdown(text, fileName) {
   const { front, body } = splitFrontmatter(text);
   const fileTitle = stripExt(baseName(fileName)) || 'Obsidian 笔记';
-  const root = buildTree(scan(body), fileTitle);
+  // 先清掉上一次回写留下的高亮块，避免它被当成正文再切出一堆卡片
+  const root = buildTree(scan(stripMarks(body)), fileTitle);
   const cards = walkCards(root);
   return { file: fileName, fileTitle, front, root, cards, text: String(text || '') };
 }
@@ -278,11 +301,7 @@ function aggregate(notes) {
 
 /* ==================== ⑥ 回写：annotate ==================== */
 
-// 上一次插入的标记行（用于幂等清理）
-const MARK_RE = /^\s*>\s*\[!\w+\]\s*(?:掌握度\s|尚未学习|已掌握|学习中|薄弱|未学)/;
-
-/**
- * 归一化标题 key —— 用来容忍「1.2 过拟合」和「过拟合」这类只差编号的写法。
+/** 归一化标题 key —— 用来容忍「1.2 过拟合」和「过拟合」这类只差编号的写法。
  * 用户手改过标题编号、或不同工具导出的编号格式不一样时，回写不至于整篇失配。
  */
 function normKey(s) {
@@ -306,22 +325,92 @@ function indexMarks(markMap) {
 }
 
 /**
+ * 把 study_* 字段写进 YAML frontmatter（幂等）
+ *
+ * 规则：
+ *   ① 只动 `study_` 开头的键 —— 用户自己的 key 一个不碰、顺序不动；
+ *   ② 保留了 frontmatter 与正文之间的空行（`gap`），否则会重演「每次导出多一个空行」的老 bug；
+ *   ③ 原本没有 frontmatter 就新建一段。
+ *
+ * @param text   原文件全文
+ * @param fields { study_mastery: 62, ... }
+ */
+function applyFront(text, fields) {
+  const keys = Object.keys(fields || {});
+  const src = String(text || '');
+  if (!keys.length) return src;
+
+  const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n*)/);
+  const body = m ? src.slice(m[0].length) : src;
+  let gap = m ? m[2] : '';
+  if (!gap && body) gap = '\n';
+
+  let head = m ? m[1].split(/\r?\n/) : [];
+  head = head.filter((l) => !/^\s*study_[A-Za-z0-9_]+\s*:/.test(l));
+  while (head.length && !head[head.length - 1].trim()) head.pop();
+  keys.forEach((k) => head.push(k + ': ' + fields[k]));
+
+  return '---\n' + head.join('\n') + '\n---' + gap + body;
+}
+
+/**
+ * 一个来源文件的汇总 → 要写进 frontmatter 的 YAML 字段
+ *
+ * 为什么除了高亮块还要写 frontmatter：
+ *   高亮块是给人看的（颜色一眼扫过），frontmatter 是给**查询**用的 ——
+ *   装了 Dataview 就能 `TABLE study_mastery FROM #study SORT study_mastery ASC`
+ *   直接列出"最薄弱的笔记"。
+ */
+function frontFields(notes) {
+  const arr = notes || [];
+  const agg = aggregate(arr);
+  const reviews = arr.reduce((s, n) => s + (n.reviewCount || 0), 0);
+  let next = 0;
+  arr.forEach((n) => { const d = n.dueAt || 0; if (d && (!next || d < next)) next = d; });
+
+  const out = {};
+  // ⚠️ 一张都没练过时 aggregate 会给出 50%（alpha=beta=1 的先验），写进笔记是错的 → 强制 0
+  out.study_mastery = reviews > 0 ? agg.pct : 0;
+  out.study_state = agg.label;
+  out.study_cards = arr.length;
+  out.study_reviews = reviews;
+  if (next) out.study_next = isoDate(next);
+  out.study_updated = isoDate(Date.now());
+  return out;
+}
+
+/**
  * 在原 md 的每个标题行后插入/更新掌握度高亮块
  * @param originalText 原文件全文
  * @param markMap { '标题名': mastery对象 }
- * @param opts { headingDepth: 最多标注到几级标题, default 6 }
+ * @param opts {
+ *   headingDepth 最多标注到几级标题（default 6）
+ *   tags         是否同时追加 #掌握度/xx 原生标签（default true）
+ *   front        要写进 frontmatter 的 study_* 字段（可选）
+ * }
+ * @returns { text, hits, tagged, front }
  */
 function annotate(originalText, markMap, opts) {
   const o = opts || {};
   const maxDepth = o.headingDepth || 6;
+  const useTags = o.tags !== false;
   const idx = indexMarks(markMap);
-  const { front, body } = splitFrontmatter(originalText);
+
+  // ⚠️ 这里**不要**用 splitFrontmatter 重建 frontmatter。
+  //    旧写法是 push('---', front, '---', '')，那个空行是凭空加的：
+  //      原文   ---/tags/---/# 标题      → 导出后 ---/tags/---/(空)/# 标题
+  //      再导出 ---/tags/---/(空)/(空)/# 标题   ← 每导一次多一行，无限累积
+  //    正确做法：把 frontmatter 段（含它后面原有的换行）**原样切出来**，
+  //    最后再原样拼回去，保证与原文逐字一致。
+  const text = applyFront(String(originalText || ''), o.front);
+  const m0 = text.match(/^---\r?\n[\s\S]*?\r?\n---(\r?\n*)/);
+  const head = m0 ? m0[0] : '';
+  const body = m0 ? text.slice(m0[0].length) : text;
   const lines = body.split(/\r?\n/);
   const out = [];
   let fence = false;
   let hits = 0;
-
-  if (front) { out.push('---', front, '---', ''); }
+  let tagged = 0;
 
   for (let i = 0; i < lines.length; i += 1) {
     const raw = lines[i];
@@ -343,7 +432,9 @@ function annotate(originalText, markMap, opts) {
             const tail = info.reviews > 0
               ? '掌握度 ' + info.pct + '% · 复习 ' + info.reviews + ' 次 · 下次 ' + fmtDate(info.nextDue)
               : '尚未学习 · 导入后还没练过';
-            out.push('> [!' + info.callout + '] ' + tail);
+            let line = '> [!' + info.callout + '] ' + tail;
+            if (useTags) { line += '  ' + tierTag(info.label); tagged += 1; }
+            out.push(line);
             hits += 1;
           }
         }
@@ -353,10 +444,156 @@ function annotate(originalText, markMap, opts) {
     out.push(raw);
   }
 
-  return { text: out.join('\n'), hits };
+  return { text: head + out.join('\n'), hits, tagged, front: !!o.front };
 }
 
-/* ==================== ⑦ 汇总报告 ==================== */
+/* ==================== ⑦ 待复习清单（生成给 Obsidian 的 .md） ==================== */
+
+const DAY_MS = 86400000;
+
+function isoDate(ts) {
+  const d = new Date(ts || Date.now());
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+}
+
+function startOfDay(ts) {
+  const d = new Date(ts || Date.now());
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
+ * 一张卡片 → Obsidian 里可点击的链接
+ * Obsidian 的 [[]] 指向的是**文件名（不含扩展名）**，跨文件定位到标题用 `文件名#标题`。
+ */
+function obsidianLink(note) {
+  const f = (note && note.src && note.src.file) || '';
+  if (!f) return '';
+  const base = fileBase(f);
+  const path = (note.src && note.src.nodePath) || [];
+  const head = String(path[path.length - 1] || '').replace(/[#\[\]|]/g, '').trim();
+  return base ? '[[' + base + (head ? '#' + head : '') + ']]' : '';
+}
+
+/**
+ * 生成「待复习清单.md」
+ *
+ * 为什么值得做：小程序里的排期只有打开小程序才看得见，而 Obsidian 是用户真正待着的地方。
+ * 把到期卡片变成一份**可点击的 .md**，复习闭环就落在 Obsidian 里了 ——
+ * 点链接 → 跳到原笔记 → 回忆一遍 → 回小程序练一轮。
+ *
+ * @param notes 全部卡片
+ * @param opts  { days: 往后看几天, default 7, now }
+ */
+function dueList(notes, opts) {
+  const o = opts || {};
+  const days = typeof o.days === 'number' ? o.days : 7;
+  const now = o.now || Date.now();
+  const t0 = startOfDay(now);
+  const dayEnd = t0 + DAY_MS;
+  const until = t0 + (days + 1) * DAY_MS;
+
+  const all = (notes || []).filter((n) => n && n.title);
+  const linked = all.filter((n) => n.src && n.src.file);
+  const noSrc = all.length - linked.length;
+
+  const groups = [
+    { key: 'overdue', title: '🔴 已经逾期', items: [] },
+    { key: 'today',   title: '📅 今天到期', items: [] },
+    { key: 'soon',    title: '⏳ 未来 ' + days + ' 天', items: [] },
+  ];
+  const byKey = {};
+  groups.forEach((g) => { byKey[g.key] = g; });
+
+  linked.forEach((n) => {
+    const due = n.dueAt || 0;
+    if (due < t0) byKey.overdue.items.push(n);
+    else if (due < dayEnd) byKey.today.items.push(n);
+    else if (due <= until) byKey.soon.items.push(n);
+  });
+
+  const sortByDue = (a, b) => (a.dueAt || 0) - (b.dueAt || 0);
+  groups.forEach((g) => g.items.sort(sortByDue));
+
+  const total = groups.reduce((s, g) => s + g.items.length, 0);
+
+  // 一块都没有 → 别给一份空文件，直接列最近要到期的，让人有下手的地方
+  let fallback = null;
+  if (!total) {
+    fallback = {
+      key: 'next', title: '📆 接下来最近到期的（共 ' + linked.length + ' 张里取前 15）',
+      items: linked.slice().filter((n) => (n.dueAt || 0) > until).sort(sortByDue).slice(0, 15),
+    };
+  }
+
+  const line = (n) => {
+    const m = masteryOf(n);
+    const bits = [];
+    bits.push(m.reviews > 0 ? m.emoji + ' ' + m.pct + '% · ' + m.label
+                            : m.emoji + ' 还没练过');
+    // ⚠️ 逾期天数按**自然日**算（到期日到今天隔了几天），不是按「距 now 的小时数」取整 ——
+    //    否则 27 号到期的卡在 29 号凌晨会显示成「逾期 1 天」，和人的直觉对不上。
+    const overdue = Math.round((t0 - startOfDay(n.dueAt || now)) / DAY_MS);
+    if ((n.dueAt || 0) < t0 && overdue > 0) bits.push('逾期 ' + overdue + ' 天');
+    else if ((n.dueAt || 0) >= dayEnd) bits.push('到期 ' + isoDate(n.dueAt));
+    if (m.reviews > 0) bits.push('练过 ' + m.reviews + ' 次');
+    return '- ' + obsidianLink(n) + ' — ' + bits.join(' · ');
+  };
+
+  const blocks = [];
+  (fallback ? [fallback] : groups).forEach((g) => {
+    if (!g.items.length) return;
+    blocks.push('## ' + g.title + '（' + g.items.length + '）', '');
+    blocks.push(g.items.map(line).join('\n'), '');
+  });
+
+  const head =
+    '> [!info] 共 ' + (fallback ? fallback.items.length : total) + ' 张'
+    + (fallback ? '（最近到期的）'
+                : '（逾期 ' + byKey.overdue.items.length
+                  + ' · 今天 ' + byKey.today.items.length
+                  + ' · 未来 ' + days + ' 天 ' + byKey.soon.items.length + '）');
+
+  const tailLines = [
+    '---',
+    '',
+    '### 怎么用',
+    '',
+    '1. 每一行都是 Obsidian 的 `[[文件#标题]]`，**点一下就能跳到原笔记的对应章节**；',
+    '2. 这份清单是**一次性快照**，不会改动你的笔记，也没有勾选状态；',
+    '3. 在笔记里回忆一遍，再回小程序练一轮 —— 掌握度、到期时间都会更新，下次导出就是新的清单。',
+    '',
+  ];
+  if (noSrc > 0) {
+    tailLines.push('> 另有 ' + noSrc + ' 张卡片不是从 Obsidian 笔记导入的，没有原笔记可跳转，没有列进这份清单。', '');
+  }
+  tailLines.push(
+    '> 🟢 已掌握 / 🔵 学习中 / 🟠 薄弱 / ⚪ 未学 与小程序的掌握度分档一致。',
+    '',
+    '_由「知识卡片」小程序生成 · ' + isoDate(now) + '_',
+    '',
+  );
+
+  return [
+    '---',
+    'type: study-companion-todo',
+    'generated: ' + isoDate(now),
+    'due: ' + (fallback ? fallback.items.length : total),
+    'tags:',
+    '  - study',
+    '  - 待复习',
+    '---',
+    '',
+    '# 📝 今天该复习什么',
+    '',
+    head,
+    '',
+    blocks.join('\n'),
+    tailLines.join('\n'),
+  ].join('\n');
+}
+
+/* ==================== ⑧ 汇总报告 ==================== */
 
 function tree2lines(nodes, depth, rows) {
   // nodes: [{ name, children, notes, agg }]
@@ -451,9 +688,46 @@ function paths2tree(paths) {
   return strip(root).children;
 }
 
+/**
+ * 统计「有标题但没正文」的节点数 —— 这些节点不会生成卡片。
+ * 纯大纲式笔记（只有标题没有正文）比较常见，导入预览里要如实告诉用户，
+ * 否则用户会以为「导入丢了内容」。
+ */
+function countEmptyNodes(root) {
+  let n = 0;
+  const walk = (node) => {
+    (node.children || []).forEach((c) => {
+      const hasBody = stripComments(c.body.join('\n')).trim().length > 0;
+      if (!hasBody) n += 1;
+      walk(c);
+    });
+  };
+  walk(root);
+  return n;
+}
+
+/** 一个 root 下的标题总数 */
+function countHeadings(root) {
+  let n = 0;
+  const walk = (node) => {
+    (node.children || []).forEach((c) => { n += 1; walk(c); });
+  };
+  walk(root);
+  return n;
+}
+
+/**
+ * 从文件名推 basename（去路径、去扩展名）—— Obsidian 的 [[链接]] 指向的就是它
+ */
+function fileBase(p) {
+  return stripExt(baseName(p));
+}
+
 module.exports = {
   TIER, cleanInline, extractTags, baseName, stripExt, fmtDate,
+  countEmptyNodes, countHeadings, fileBase,
   splitFrontmatter, scan, buildTree, cardsOfNode, walkCards,
   parseMarkdown, parseVault,
-  masteryOf, aggregate, annotate, report, paths2tree,
+  masteryOf, aggregate, annotate, applyFront, frontFields, report, paths2tree,
+  stripMarks, tierTag, isoDate, obsidianLink, dueList,
 };

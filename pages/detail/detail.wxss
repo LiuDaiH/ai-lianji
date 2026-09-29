@@ -85,3 +85,52 @@ page {
 .ab-tips { margin-top: 14rpx; }
 .ab-tip { font-size: 23rpx; color: #6B7280; line-height: 1.75; }
 .ok-tip { color: #1E7B3C; }
+
+/* ---------- 关联卡片（链） ---------- */
+.lk-head { display: flex; align-items: center; justify-content: space-between; }
+.lk-graph { font-size: 24rpx; color: #3B6FF5; }
+.lk-sec { margin-top: 20rpx; }
+.lk-label { font-size: 23rpx; color: #8A90A0; margin-bottom: 10rpx; }
+.lk-label.hint-l { color: #B7791F; }
+.lk-item {
+  display: flex; align-items: center; padding: 16rpx 18rpx;
+  background: #F7F8FC; border-radius: 14rpx; margin-bottom: 10rpx;
+}
+.lk-item:last-child { margin-bottom: 0; }
+.lk-dot { width: 10rpx; height: 10rpx; border-radius: 50%; margin-right: 16rpx; flex-shrink: 0; }
+.lk-dot.out { background: #3B6FF5; }
+.lk-dot.back { background: #34A853; }
+.lk-body { flex: 1; min-width: 0; }
+.lk-trow { display: flex; align-items: center; }
+.lk-trow .lk-title { flex: 1; min-width: 0; }
+.lk-badge {
+  flex-shrink: 0; margin-left: 10rpx; padding: 0 10rpx;
+  font-size: 19rpx; line-height: 30rpx; border-radius: 6rpx;
+  color: #B7791F; background: #FFF6E5;
+}
+.lk-title { font-size: 27rpx; font-weight: 600;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lk-sub { font-size: 22rpx; color: #8A90A0; margin-top: 2rpx;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lk-arrow { color: #B4BAC8; font-size: 30rpx; margin-left: 12rpx; }
+
+.lk-sug {
+  display: flex; align-items: center; padding: 16rpx 18rpx;
+  background: #FFF9F0; border-radius: 14rpx; margin-bottom: 10rpx;
+  border-left: 5rpx solid #E8A33D;
+}
+.lk-sug:last-child { margin-bottom: 0; }
+.lk-sug-body { flex: 1; min-width: 0; }
+.lk-btn {
+  font-size: 23rpx; color: #FFF; background: #E8A33D;
+  padding: 10rpx 22rpx; border-radius: 26rpx; margin-left: 14rpx; flex-shrink: 0;
+}
+
+.lk-none { padding: 16rpx 0 4rpx; font-size: 25rpx; color: #8A90A0; line-height: 1.8; }
+.mono { font-family: Consolas, Menlo, monospace; color: #3B6FF5; font-size: 23rpx; }
+.lk-tip {
+  margin-top: 18rpx; padding-top: 16rpx; border-top: 1rpx solid #F1F3F8;
+  font-size: 22rpx; color: #B4BAC8; line-height: 1.7;
+}
+
+.lk-more { font-size: 22rpx; color: #B4BAC8; padding: 4rpx 0 10rpx 26rpx; }

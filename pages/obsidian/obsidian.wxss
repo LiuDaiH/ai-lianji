@@ -71,7 +71,15 @@ page {
   border-top: 7rpx solid transparent; border-bottom: 7rpx solid transparent;
 }
 .lm-line.back { background: linear-gradient(90deg, rgba(255,255,255,.25), #8FB0FF); }
-.lm-line.back::after { border-left-color: #8FB0FF; }
+/* ⚠️ 修复：这里原来只写了 border-left-color —— 只换了颜色，方向还是朝右，
+   看起来就是「两个箭头都向右」。必须同时翻转三角形的方向与定位边。 */
+.lm-line.back::after {
+  right: auto; left: -2rpx;
+  border-left: 0;
+  border-right: 12rpx solid #8FB0FF;
+  border-top: 7rpx solid transparent;
+  border-bottom: 7rpx solid transparent;
+}
 .lm-txt { font-size: 19rpx; opacity: .78; margin-top: 8rpx; }
 
 .loop-note {
@@ -186,6 +194,18 @@ page {
 .demo-h { color: #C7CEDB; }
 .demo-c { color: #8CE0B4; }
 .dc-tag { color: #6C8FF7; }
+.dc-tag2 { color: #FFC46B; }
+.demo-fm { margin-top: 22rpx; }
+
+.mono { font-family: Consolas, Menlo, monospace; color: #3B6FF5; font-size: 23rpx; }
+
+/* ---------- 待复习清单 ---------- */
+.todo-flow { display: flex; align-items: center; flex-wrap: wrap; margin-top: 18rpx; }
+.tf-i {
+  background: var(--brand-soft); color: var(--brand);
+  font-size: 22rpx; padding: 8rpx 16rpx; border-radius: 999rpx;
+}
+.tf-a { color: #C7CEDB; font-size: 22rpx; margin: 0 10rpx; }
 
 .levels { display: flex; gap: 18rpx; margin-top: 20rpx; flex-wrap: wrap; }
 .lv { display: flex; align-items: center; font-size: 23rpx; color: #6B7280; }
@@ -218,3 +238,54 @@ page {
   border-radius: 50%; background: var(--brand-soft); color: var(--brand);
   font-size: 21rpx; font-weight: 700; margin-right: 14rpx; flex-shrink: 0; margin-top: 4rpx;
 }
+
+/* ---------- 双向流动光点：一眼看出这是“活的”双向同步 ---------- */
+.lm-line { overflow: visible; }
+.lm-line::before {
+  content: "";
+  position: absolute; top: -5rpx; left: 0;
+  width: 26rpx; height: 13rpx; border-radius: 7rpx;
+  background: radial-gradient(circle, #FFFFFF 0%, rgba(255,233,168,0) 72%);
+  animation: flowR 2s linear infinite;
+}
+@keyframes flowR {
+  0%   { left: -8rpx;  opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { left: 100%;   opacity: 0; }
+}
+.lm-line.back::before {
+  background: radial-gradient(circle, #FFFFFF 0%, rgba(143,176,255,0) 72%);
+  animation-name: flowL;
+}
+@keyframes flowL {
+  0%   { left: 100%;   opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { left: -8rpx;  opacity: 0; }
+}
+
+/* ---------- 进入本页时 banner 依次入场 ---------- */
+.banner.anim .bn-badge { animation: obUp .42s cubic-bezier(.2,.9,.3,1.1) both; }
+.banner.anim .bn-title { animation: obUp .46s cubic-bezier(.2,.9,.3,1.1) .06s both; }
+.banner.anim .bn-sub   { animation: obUp .5s  cubic-bezier(.2,.9,.3,1.1) .12s both; }
+.banner.anim .loop     { animation: obUp .54s cubic-bezier(.2,.9,.3,1.1) .2s both; }
+.banner.anim .loop-note{ animation: obUp .5s  cubic-bezier(.2,.9,.3,1.1) .28s both; }
+@keyframes obUp {
+  from { opacity: 0; transform: translateY(16rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 中间双向示意：上=导入(向右)　下=回写(向左)，两端都是 vault 与 小程序 ---------- */
+.loop-mid.dual { display: flex; flex-direction: column; gap: 16rpx; padding: 0 6rpx; }
+.dual-item { display: flex; flex-direction: column; align-items: center; }
+.dual-item .lm-line { width: 100%; }
+.dual-item .lm-txt { margin-top: 5rpx; font-size: 19rpx; opacity: .82; white-space: nowrap; }
+
+/* ---------- 知识图谱入口 ---------- */
+.graph-entry { display: flex; align-items: center; padding: 24rpx 26rpx; }
+.ge-ico { font-size: 40rpx; margin-right: 18rpx; }
+.ge-body { flex: 1; min-width: 0; }
+.ge-t { font-size: 29rpx; font-weight: 700; color: #1F2430; }
+.ge-sub { font-size: 22rpx; color: #8A90A0; margin-top: 6rpx; line-height: 1.5; }
+.ge-arrow { font-size: 34rpx; color: #C7CEDB; margin-left: 12rpx; flex-shrink: 0; }
