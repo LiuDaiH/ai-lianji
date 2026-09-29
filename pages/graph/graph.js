@@ -25,7 +25,7 @@ const MAX_SCALE = 2.8;
 const SHEET_CAP = 120;             // 抽屉一次最多列多少条
 const ROW_H = 52;                  // 抽屉里一行的估算高度（px，用来算列表高度）
 const SHEET_LIST_MAX = 198;        // ⚠️ 抽屉别盖满画布 —— 上限压到 ~200px，上面始终留得下图
-const POP_MS = 320;                // 点击回弹时长
+const POP_MS = 260;                // 点击回弹时长
 
 const LEVEL_TEXT = { new: '未学', learning: '学习中', mastered: '已掌握' };
 
@@ -72,8 +72,13 @@ Page({
   onReady() {
     this.initCanvas().then(() => {
       this.build(this.dataSig());
-      // 第一次进图谱页自动走一遍手势引导 —— 这套交互光看界面猜不出来
-      if (!wx.getStorageSync('sc_tour_done_graph')) this.setData({ tourActive: true });
+      // 第一次进图谱页自动走一遍引导。
+      // ⚠️ 标记要在**一开始**就写上：原来只在"走完/跳过"时才写，用户没走完 →
+      //    下次进页又自动放一遍 → 整页被引导蒙层盖住，「? 怎么看」怎么点都点不开
+      if (!wx.getStorageSync('sc_tour_done_graph')) {
+        wx.setStorageSync('sc_tour_done_graph', 1);
+        this.setData({ tourActive: true });
+      }
     });
   },
 
@@ -179,8 +184,11 @@ Page({
     const g = link.buildGraph(notes, cats);
     const out = graphLib.layout(g, this.W, this.H, {});
     // _g = 入场进度（0→1）：打开页面时节点依次弹出，别一上来就一坨静态点
-    this.nodes = out.nodes.map((n, i) => Object.assign(n, { _a: 1, _g: 0, _i: i }));
-    this._enterT0 = Date.now();
+    // 入场动画只在**第一次**画出来时播；重排 / 切筛选不播（否则每次都"蹦一遍"，像卡顿）
+    const playEnter = !this._enterDone;
+    this._enterDone = true;
+    this.nodes = out.nodes.map((n, i) => Object.assign(n, { _a: 1, _g: playEnter ? 0 : 1, _i: i }));
+    this._enterT0 = playEnter ? Date.now() : null;
     this.edges = out.edges;
     this._idx = {};
     this.nodes.forEach((n) => { this._idx[n.id] = n; });
@@ -272,20 +280,90 @@ Page({
     this.play();
   },
 
-  /** 工具行里的「◎ 聚焦」：选中了类别就聚焦它，没选就提示 */
+  /**
+   * 工具行里的「◎ 聚焦」
+   *   已经在聚焦 → 退出
+   *   选中了类别 → 直接聚焦它
+   *   什么都没选 → **弹出类别列表让你挑**（按钮辅助：不用先去点中那个小圆点）
+   */
   onFocusTool() {
     if (this.data.focus) { this.setFocus(null); return; }
     const sel = this.selId ? this.nodes.filter((n) => n.id === this.selId)[0] : null;
-    if (!sel) {
-      wx.showToast({ title: '先点一个类别大圆（深色那个）', icon: 'none' });
+    if (sel && sel.type === 'cat') {
+      this.hideSheet();
+      this.setFocus(sel.rawId);
+      this.play();
       return;
     }
-    if (sel.type !== 'cat') {
-      wx.showToast({ title: '聚焦要选类别；想单独看这张卡就直接点开它', icon: 'none' });
+    this.showCatPick();
+  },
+
+  /** 「☰ 清单」：列出全部卡片，点一条就在图上把它居中选中 */
+  onCardList() {
+    const notes = store.listNotes();
+    const names = {};
+    cat.list().forEach((c) => { names[c.id] = c.name; });
+    const list = notes.filter((n) => n && n.title)
+      .slice().sort((a, b) => (a.reviewCount || 0) - (b.reviewCount || 0));
+    const items = list.slice(0, SHEET_CAP).map((n) => ({
+      id: n.id, title: n.title, level: link.masteryLevel(n),
+      meta: (LEVEL_TEXT[link.masteryLevel(n)] || '') + ' · 练过 ' + (n.reviewCount || 0) + ' 次'
+            + (names[n.categoryId] ? ' · ' + names[n.categoryId] : ''),
+    }));
+    this.setData({
+      sheet: {
+        show: true, kind: 'cards', rawId: '', nodeId: '',
+        title: '全部卡片', sub: '最薄的排前面 · 点一条就在图上定位它',
+        total: list.length, items, more: Math.max(0, list.length - items.length),
+        focusOn: false,
+        listH: Math.min(SHEET_LIST_MAX, Math.max(96, Math.max(1, items.length) * ROW_H)),
+      },
+    });
+  },
+
+  /** 类别列表（给「◎ 聚焦」用） */
+  showCatPick() {
+    const allCats = cat.list();
+    const notes = store.listNotes();
+    const catIds = {};
+    const counts = {};
+    allCats.forEach((c) => { catIds[c.id] = true; });
+    notes.forEach((n) => {
+      const cid = (n.categoryId && catIds[n.categoryId]) ? n.categoryId : '__none__';
+      counts[cid] = (counts[cid] || 0) + 1;
+    });
+    const rows = allCats.map((c) => ({ id: c.id, name: c.name, count: counts[c.id] || 0 }));
+    if (counts.__none__) rows.push({ id: '__none__', name: '未分类', count: counts.__none__ });
+    rows.sort((a, b) => b.count - a.count);
+    const items = rows.map((r) => ({
+      id: 'cat:' + r.id, catId: r.id, title: r.name, level: 'cat', meta: r.count + ' 张卡片',
+    }));
+    this.setData({
+      sheet: {
+        show: true, kind: 'catpick', rawId: '', nodeId: '',
+        title: '选一个类别', sub: '点它就只看这一块（卡片多的排前面）',
+        total: rows.length, items, more: 0, focusOn: false,
+        listH: Math.min(SHEET_LIST_MAX, Math.max(96, Math.max(1, items.length) * ROW_H)),
+      },
+    });
+  },
+
+  /** 把某张卡在图上居中放大并选中（按钮辅助：不用去点那个小圆点） */
+  locateNote(id) {
+    this.setData({ 'sheet.show': false });
+    const n = this.nodes.filter((x) => x.type === 'note' && x.rawId === id)[0];
+    if (!n) {
+      // 被「只看关联」滤掉、或被 150 张的裁剪裁掉了 → 别让用户白点，直接打开它
+      wx.showToast({ title: '这张卡没画在图上，直接打开它', icon: 'none' });
+      this.openNote(id);
       return;
     }
-    this.hideSheet();
-    this.setFocus(sel.rawId);
+    const now = Date.now();
+    this.selId = n.id;
+    this.pop = { node: n, t0: now };
+    this.pulse = { node: n, t0: now };
+    const k = Math.max(this.view.scale, 1.5);
+    this.viewTarget = { scale: k, tx: this.W / 2 - n.x * k, ty: this.H / 2 - n.y * k };
     this.play();
   },
 
@@ -350,11 +428,11 @@ Page({
     if (this.viewTarget) {
       const v = this.view, t = this.viewTarget;
       let done = true;
-      if (Math.abs(t.scale - v.scale) > 0.004) { v.scale += (t.scale - v.scale) * 0.2; done = false; }
+      if (Math.abs(t.scale - v.scale) > 0.004) { v.scale += (t.scale - v.scale) * 0.26; done = false; }
       else v.scale = t.scale;
-      if (Math.abs(t.tx - v.tx) > 0.6) { v.tx += (t.tx - v.tx) * 0.2; done = false; }
+      if (Math.abs(t.tx - v.tx) > 0.6) { v.tx += (t.tx - v.tx) * 0.26; done = false; }
       else v.tx = t.tx;
-      if (Math.abs(t.ty - v.ty) > 0.6) { v.ty += (t.ty - v.ty) * 0.2; done = false; }
+      if (Math.abs(t.ty - v.ty) > 0.6) { v.ty += (t.ty - v.ty) * 0.26; done = false; }
       else v.ty = t.ty;
       if (done) {
         this.viewTarget = null;
@@ -362,14 +440,14 @@ Page({
       } else more = true;
     }
 
-    // ③ 入场：节点依次放大淡入（错峰，看起来是"长出来"的）
+    // ③ 入场：节点依次放大淡入（只播一次，短平快）
     if (this._enterT0) {
       const el = Date.now() - this._enterT0;
       let pending = false;
       for (let i = 0; i < this.nodes.length; i += 1) {
         const n = this.nodes[i];
-        const delay = Math.min(i * 5, 400);              // 错峰但总时长封顶
-        const k = Math.min(1, Math.max(0, (el - delay) / 420));
+        const delay = Math.min(i * 3, 180);              // 错峰但总时长封顶
+        const k = Math.min(1, Math.max(0, (el - delay) / 300));
         n._g = 1 - Math.pow(1 - k, 3);                   // ease-out
         if (k < 1) pending = true;
       }
@@ -381,7 +459,7 @@ Page({
     if (this.pop && (Date.now() - this.pop.t0) / POP_MS >= 1) this.pop = null;
     if (this.pop) more = true;
     if (this.pulse) {
-      if ((Date.now() - this.pulse.t0) / 440 >= 1) this.pulse = null;
+      if ((Date.now() - this.pulse.t0) / 380 >= 1) this.pulse = null;
       else more = true;
     }
 
@@ -474,7 +552,7 @@ Page({
       // 点击回弹：先鼓一下再收回（sin 曲线，比单纯放大更"有弹性"）
       if (this.pop && this.pop.node === n) {
         const k = Math.min(1, (Date.now() - this.pop.t0) / POP_MS);
-        r *= 1 + 0.42 * Math.sin(Math.PI * k);
+        r *= 1 + 0.26 * Math.sin(Math.PI * k);
       }
 
       ctx.globalAlpha = a;
@@ -510,11 +588,11 @@ Page({
     // ---- 点击脉冲：一圈向外扩散的波 ----
     if (this.pulse && idx[this.pulse.node.id]) {
       const p = this.pulse.node;
-      const k = Math.max(0, Math.min(1, (Date.now() - p.t0) / 440));
+      const k = Math.max(0, Math.min(1, (Date.now() - p.t0) / 380));
       const r0 = graphLib.radiusOf(p) + 2;
-      ctx.globalAlpha = (1 - k) * 0.55;
+      ctx.globalAlpha = (1 - k) * 0.5;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, r0 + k * 26, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, r0 + k * 20, 0, Math.PI * 2);
       ctx.lineWidth = 2.4;
       ctx.strokeStyle = p.type === 'cat' ? '#2B3A55' : '#F0851F';
       ctx.stroke();
@@ -770,7 +848,16 @@ Page({
   },
 
   onGoItem(e) {
-    this.openNote(e.currentTarget.dataset.id);
+    const id = e.currentTarget.dataset.id;
+    const kind = this.data.sheet.kind;
+    if (kind === 'catpick') {            // 挑类别 → 聚焦它
+      this.setData({ 'sheet.show': false });
+      this.setFocus(String(id).replace(/^cat:/, ''));
+      this.play();
+      return;
+    }
+    if (kind === 'cards') { this.locateNote(id); return; }   // 挑卡片 → 图上定位
+    this.openNote(id);                                        // 类别抽屉里的卡片 → 进详情
   },
 
   /* ==================== 首次进入引导 ==================== */
@@ -793,7 +880,11 @@ Page({
     this.setData({ tourActive: false, pageStyle: '' });
   },
 
-  onRestartTour() { this.setData({ tourActive: true, tourFlow: 'graph' }); },
+  onRestartTour() {
+    // 先关再开：引导正开着（或刚关掉）时，同值 setData 不会触发组件观察者
+    this.setData({ tourActive: false });
+    setTimeout(() => this.setData({ tourActive: true, tourFlow: 'graph' }), 30);
+  },
 
   openNote(id) {
     if (!id) return;

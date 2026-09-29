@@ -7,9 +7,10 @@ page { height: 100%; overflow: hidden; }
 .head { padding: 6rpx 6rpx 16rpx; }
 .h-row { display: flex; align-items: center; justify-content: space-between; }
 .h-title { font-size: 38rpx; font-weight: 700; }
+.h-ops { display: flex; align-items: center; gap: 10rpx; flex-shrink: 0; }
 .h-help {
-  font-size: 22rpx; color: #3B6FF5; padding: 8rpx 18rpx;
-  background: #EAF1FE; border-radius: 999rpx; flex-shrink: 0;
+  font-size: 21rpx; color: #3B6FF5; padding: 8rpx 16rpx;
+  background: #EAF1FE; border-radius: 999rpx;
 }
 .h-sub { font-size: 23rpx; color: #8A90A0; margin-top: 6rpx; line-height: 1.6; }
 .h-stats { margin-top: 14rpx; display: flex; align-items: baseline; }
@@ -124,6 +125,7 @@ page { height: 100%; overflow: hidden; }
 .sh-dot.new { background: #C2CAD8; }
 .sh-dot.learning { background: #3B6FF5; }
 .sh-dot.mastered { background: #34A853; }
+.sh-dot.cat { background: #2B3A55; }
 .sh-body { flex: 1; min-width: 0; }
 .sh-name { font-size: 27rpx; font-weight: 600;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

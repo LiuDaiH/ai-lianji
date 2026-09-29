@@ -6,9 +6,12 @@
   <view class="head">
     <view class="h-row">
       <view class="h-title">知识图谱</view>
-      <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 怎么看</view>
+      <view class="h-ops">
+        <view class="h-help" bindtap="onCardList" hover-class="hover-dim">☰ 清单</view>
+        <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 怎么看</view>
+      </view>
     </view>
-    <view class="h-sub">点节点看里面的卡片 · 双击类别只看这一块 · 双指缩放 / 拖空白平移</view>
+    <view class="h-sub">点节点看内容 · 「☰ 清单」里点一条就能在图上定位 · 双指缩放 / 拖空白平移</view>
     <view class="h-stats">
       <text class="hs-n">{{stats.notes}}</text><text class="hs-l">卡片</text>
       <text class="hs-sep">·</text>
@@ -72,7 +75,7 @@
     </view>
 
     <view class="sh-ops">
-      <view class="sh-btn primary" bindtap="onToggleFocus" hover-class="hover-dim">
+      <view class="sh-btn primary" wx:if="{{sheet.kind === 'cat'}}" bindtap="onToggleFocus" hover-class="hover-dim">
         {{sheet.focusOn ? '✕ 退出聚焦' : '◎ 只看这一块'}}
       </view>
       <view class="sh-btn ghost" bindtap="closeSheet" hover-class="hover-dim">收起</view>
@@ -88,7 +91,9 @@
         </view>
         <view class="sh-go">›</view>
       </view>
-      <view class="sh-none" wx:if="{{!sheet.items.length}}">这个类别下还没有卡片</view>
+      <view class="sh-none" wx:if="{{!sheet.items.length}}">
+        {{sheet.kind === 'catpick' ? '还没有类别' : '这里还没有卡片'}}
+      </view>
       <view class="sh-more" wx:if="{{sheet.more > 0}}">⋯ 还有 {{sheet.more}} 张没列出</view>
     </scroll-view>
   </view>
