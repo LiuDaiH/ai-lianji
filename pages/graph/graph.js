@@ -44,6 +44,8 @@ Page({
     zoomPct: 100,
     labelText: '类别+卡片',
     focus: null,                   // { id, title } 当前聚焦的类别
+    // 首次进页的引导
+    tourActive: false, tourFlow: 'graph', pageStyle: '',
     sheet: { show: false, kind: '', rawId: '', nodeId: '', title: '', sub: '', items: [], total: 0, more: 0, focusOn: false, listH: 120 },
   },
 
@@ -68,7 +70,11 @@ Page({
   },
 
   onReady() {
-    this.initCanvas().then(() => this.build(this.dataSig()));
+    this.initCanvas().then(() => {
+      this.build(this.dataSig());
+      // 第一次进图谱页自动走一遍手势引导 —— 这套交互光看界面猜不出来
+      if (!wx.getStorageSync('sc_tour_done_graph')) this.setData({ tourActive: true });
+    });
   },
 
   onShow() {
@@ -263,6 +269,23 @@ Page({
       this.setData({ focus: null });
       this.viewTarget = graphLib.fitView(this.nodes, this.W, this.H, { pad: 34 });
     }
+    this.play();
+  },
+
+  /** 工具行里的「◎ 聚焦」：选中了类别就聚焦它，没选就提示 */
+  onFocusTool() {
+    if (this.data.focus) { this.setFocus(null); return; }
+    const sel = this.selId ? this.nodes.filter((n) => n.id === this.selId)[0] : null;
+    if (!sel) {
+      wx.showToast({ title: '先点一个类别大圆（深色那个）', icon: 'none' });
+      return;
+    }
+    if (sel.type !== 'cat') {
+      wx.showToast({ title: '聚焦要选类别；想单独看这张卡就直接点开它', icon: 'none' });
+      return;
+    }
+    this.hideSheet();
+    this.setFocus(sel.rawId);
     this.play();
   },
 
@@ -671,7 +694,8 @@ Page({
     // 视觉反馈三连：回弹（pop）+ 脉冲波 + 选中高亮。**不用震动。**
     this.pop = { node, t0: now };
     this.pulse = { node, t0: now };
-    this.selId = node.id;
+    // 只有类别保留"选中"状态 —— 点卡片会立刻跳走，留个选中态会让「◎ 聚焦」取到卡片而误报
+    if (node.type === 'cat') this.selId = node.id;
 
     if (dbl) {
       this._lastTap = null;
@@ -690,9 +714,13 @@ Page({
     }
 
     this._lastTap = { id: node.id, t: now };
-    if (node.type === 'cat') this.showCatSheet(node);
-    else this.showNoteSheet(node);
-    this.play();
+    if (node.type === 'cat') {
+      this.showCatSheet(node);
+      this.play();
+      return;
+    }
+    // 卡片：单击就直接进详情（关联卡片在详情页里本来就有一整块，不必再插一层抽屉）
+    this.openNote(node.rawId);
   },
 
   /* ==================== 底部抽屉 ==================== */
@@ -741,54 +769,31 @@ Page({
     });
   },
 
-  /** 点卡片：列出它的关联卡片（出向 + 入向） */
-  showNoteSheet(node) {
-    const all = store.listNotes();
-    const byId = {};
-    all.forEach((n) => { byId[n.id] = n; });
-    const note = byId[node.rawId];
-    if (!note) return;
-
-    const idx = link.buildIndices(all);
-    const outIds = link.outLinkIds(all, note, idx);
-    const items = [];
-    const seen = {};
-    outIds.forEach((id) => {
-      if (!byId[id] || seen[id]) return;
-      seen[id] = true;
-      items.push({
-        id, title: byId[id].title, level: link.masteryLevel(byId[id]),
-        meta: '这张卡提到了',
-      });
-    });
-    link.backLinks(all, note.id).forEach((n) => {
-      if (!n || seen[n.id]) return;
-      seen[n.id] = true;
-      items.push({ id: n.id, title: n.title, level: link.masteryLevel(n), meta: '提到了这张卡' });
-    });
-
-    const level = link.masteryLevel(note);
-    this.setData({
-      sheet: {
-        show: true, kind: 'note', rawId: note.id, nodeId: node.id,
-        title: note.title,
-        sub: (LEVEL_TEXT[level] || '') + ' · 练过 ' + (note.reviewCount || 0) + ' 次 · '
-             + items.length + ' 条关联',
-        items, more: 0, focusOn: false,
-        listH: Math.min(SHEET_LIST_MAX, Math.max(96, Math.max(1, items.length) * ROW_H)),
-      },
-    });
-  },
-
   onGoItem(e) {
     this.openNote(e.currentTarget.dataset.id);
   },
 
-  onGoNote() {
-    const s = this.data.sheet;
-    if (s.kind !== 'note') return;
-    this.openNote(s.rawId);
+  /* ==================== 首次进入引导 ==================== */
+
+  notifyCoach(action) {
+    const c = this.selectComponent('#coach');
+    if (c) c.notify(action);
   },
+
+  onTourLock(e) { this.setData({ pageStyle: e.detail.locked ? 'overflow: hidden;' : '' }); },
+
+  onPageScroll() {
+    if (!this.data.tourActive) return;
+    const c = this.selectComponent('#coach');
+    if (c) c.relocate();
+  },
+
+  onTourClose() {
+    wx.setStorageSync('sc_tour_done_graph', 1);
+    this.setData({ tourActive: false, pageStyle: '' });
+  },
+
+  onRestartTour() { this.setData({ tourActive: true, tourFlow: 'graph' }); },
 
   openNote(id) {
     if (!id) return;

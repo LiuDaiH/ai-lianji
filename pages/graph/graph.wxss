@@ -5,7 +5,12 @@ page { height: 100%; overflow: hidden; }
   display: flex; flex-direction: column; }
 
 .head { padding: 6rpx 6rpx 16rpx; }
+.h-row { display: flex; align-items: center; justify-content: space-between; }
 .h-title { font-size: 38rpx; font-weight: 700; }
+.h-help {
+  font-size: 22rpx; color: #3B6FF5; padding: 8rpx 18rpx;
+  background: #EAF1FE; border-radius: 999rpx; flex-shrink: 0;
+}
 .h-sub { font-size: 23rpx; color: #8A90A0; margin-top: 6rpx; line-height: 1.6; }
 .h-stats { margin-top: 14rpx; display: flex; align-items: baseline; }
 .hs-n { font-size: 30rpx; font-weight: 700; color: #3B6FF5; }
@@ -16,10 +21,10 @@ page { height: 100%; overflow: hidden; }
   background: #FFF7E8; color: #B7791F; font-size: 21rpx; line-height: 1.6;
 }
 
-.tools { display: flex; gap: 14rpx; margin-bottom: 14rpx; }
+.tools { display: flex; gap: 10rpx; margin-bottom: 14rpx; }
 .tool {
-  flex: 1; text-align: center; font-size: 24rpx; color: #5A6072;
-  padding: 14rpx 10rpx; background: #FFF; border-radius: 14rpx;
+  flex: 1; text-align: center; font-size: 22rpx; color: #5A6072;
+  padding: 14rpx 4rpx; background: #FFF; border-radius: 14rpx;
   box-shadow: 0 2rpx 10rpx rgba(31,36,48,.05);
   box-sizing: border-box;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
@@ -62,7 +67,7 @@ page { height: 100%; overflow: hidden; }
   background: rgba(43,58,85,.92); color: #FFF; font-size: 21rpx;
   box-shadow: 0 4rpx 14rpx rgba(31,36,48,.18);
 }
-.fc-x { margin-left: 12rpx; font-size: 22rpx; opacity: .75; }
+.fc-x { margin-left: 12rpx; font-size: 21rpx; opacity: .8; }
 
 .legend {
   display: flex; align-items: center; flex-wrap: wrap; gap: 20rpx;
@@ -106,7 +111,8 @@ page { height: 100%; overflow: hidden; }
   flex: 1; text-align: center; font-size: 25rpx; line-height: 68rpx;
   border-radius: 34rpx; background: #F2F5FB; color: #3B6FF5; font-weight: 600;
 }
-.sh-btn.primary { background: #3B6FF5; color: #FFF; }
+.sh-btn.primary { background: #3B6FF5; color: #FFF; line-height: 78rpx; font-size: 27rpx; }
+.sh-btn.primary:active { opacity: .85; }
 .sh-btn.ghost { background: #F7F8FB; color: #6B7280; font-weight: 500; flex: 0 0 130rpx; }
 
 .sh-list { box-sizing: border-box; }

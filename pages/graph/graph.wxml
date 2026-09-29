@@ -1,8 +1,13 @@
 <!-- pages/graph/graph.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
 <view class="container">
 
   <view class="head">
-    <view class="h-title">知识图谱</view>
+    <view class="h-row">
+      <view class="h-title">知识图谱</view>
+      <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 怎么看</view>
+    </view>
     <view class="h-sub">点节点看里面的卡片 · 双击类别只看这一块 · 双指缩放 / 拖空白平移</view>
     <view class="h-stats">
       <text class="hs-n">{{stats.notes}}</text><text class="hs-l">卡片</text>
@@ -16,12 +21,13 @@
     </view>
   </view>
 
-  <view class="tools">
+  <view class="tools" id="gtools">
     <view class="tool {{onlyLinked ? 'on' : ''}}" bindtap="onToggleFilter" hover-class="hover-dim">
       {{onlyLinked ? '只看关联' : '显示全部'}}
     </view>
     <view class="tool" bindtap="onRelayout" hover-class="hover-dim">重排</view>
     <view class="tool" bindtap="onFit" hover-class="hover-dim">适配</view>
+    <view class="tool {{focus ? 'on' : ''}}" bindtap="onFocusTool" hover-class="hover-dim">◎ 聚焦</view>
   </view>
 
   <view class="cv-wrap">
@@ -34,13 +40,13 @@
     <!-- 缩放档位：让"为什么有些字看不见"有个交代 -->
     <view class="zoom-chip">{{zoomPct}}% · {{labelText}}</view>
 
-    <view class="zoomers">
+    <view class="zoomers" id="gzoom">
       <view class="zbtn" data-d="in" bindtap="onZoom" hover-class="hover-dim">＋</view>
       <view class="zbtn" data-d="out" bindtap="onZoom" hover-class="hover-dim">−</view>
     </view>
 
     <view class="focus-chip" wx:if="{{focus}}" bindtap="onClearFocus" hover-class="hover-dim">
-      聚焦：{{focus.title}}<text class="fc-x">✕</text>
+      聚焦：{{focus.title}}<text class="fc-x">✕ 退出</text>
     </view>
 
     <view class="empty" wx:if="{{empty}}">还没有卡片，先去录入几张</view>
@@ -56,7 +62,7 @@
     <view class="lg"><view class="line dash"></view><text>类别层级</text></view>
   </view>
 
-  <!-- ============ 底部抽屉：点开就看有哪些卡片 ============ -->
+  <!-- ============ 底部抽屉：点类别就看它下面有哪些卡片 ============ -->
   <view class="sheet-mask" wx:if="{{sheet.show}}" bindtap="closeSheet"></view>
   <view class="sheet" wx:if="{{sheet.show}}">
     <view class="sh-grip"></view>
@@ -66,11 +72,8 @@
     </view>
 
     <view class="sh-ops">
-      <view class="sh-btn" wx:if="{{sheet.kind === 'cat'}}" bindtap="onToggleFocus" hover-class="hover-dim">
-        {{sheet.focusOn ? '退出聚焦' : '只看这一块'}}
-      </view>
-      <view class="sh-btn primary" wx:if="{{sheet.kind === 'note'}}" bindtap="onGoNote" hover-class="hover-dim">
-        打开卡片 ›
+      <view class="sh-btn primary" bindtap="onToggleFocus" hover-class="hover-dim">
+        {{sheet.focusOn ? '✕ 退出聚焦' : '◎ 只看这一块'}}
       </view>
       <view class="sh-btn ghost" bindtap="closeSheet" hover-class="hover-dim">收起</view>
     </view>
@@ -85,11 +88,12 @@
         </view>
         <view class="sh-go">›</view>
       </view>
-      <view class="sh-none" wx:if="{{!sheet.items.length}}">
-        {{sheet.kind === 'cat' ? '这个类别下还没有卡片' : '这张卡还没有关联卡片'}}
-      </view>
+      <view class="sh-none" wx:if="{{!sheet.items.length}}">这个类别下还没有卡片</view>
       <view class="sh-more" wx:if="{{sheet.more > 0}}">⋯ 还有 {{sheet.more}} 张没列出</view>
     </scroll-view>
   </view>
+
+  <coach id="coach" flow="{{tourFlow}}" active="{{tourActive}}"
+         bind:close="onTourClose" bind:lock="onTourLock" />
 
 </view>
