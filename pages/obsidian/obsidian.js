@@ -33,6 +33,7 @@ Page({
     rows: [],
     opt: { folder: true, head: true },
     result: '', result2: '',
+    garbledCats: [], garbledCatCount: 0, garbledFolders: [], garbledCount: 0,
     sources: [],
     sourceStats: { files: 0, kb: 0 },
     syncStats: { files: 0, linked: 0, nodes: 0, total: 0 },
@@ -59,6 +60,49 @@ Page({
 
   switchTab(e) { this.setData({ tab: e.currentTarget.dataset.tab }); },
 
+  /** 扫一遍：有没有类别名是乱码（旧数据要先修） */
+  scanGarbledCats() {
+    const all = cat.list();
+    const bad = all.filter((c) => fs.looksGarbled(c.name));
+    this._garbledCats = bad;
+    this.setData({ garbledCats: bad.map((c) => c.name).slice(0, 5), garbledCatCount: bad.length });
+    return bad;
+  },
+
+  /**
+   * 一键修：把乱码类别名改成「它下面卡片最常出现的那个标题」
+   * （卡片标题来自笔记正文，是 UTF-8 的，所以可靠）
+   */
+  onFixGarbledCats() {
+    const bad = this._garbledCats || this.scanGarbledCats();
+    if (!bad.length) { wx.showToast({ title: '没有乱码类别', icon: 'none' }); return; }
+    const allCats = cat.list();
+    const notes = store.listNotes();
+    let fixed = 0;
+    const left = [];
+    bad.forEach((c) => {
+      const ids = cat.descendants(allCats, c.id);
+      const mine = notes.filter((n) => n.categoryId && ids[n.categoryId] && n.src);
+      const tally = {};
+      mine.forEach((n) => {
+        const name = (n.src.nodePath || [])[0] || fs.stripExt(fs.baseName(n.src.file)) || '';
+        if (name && !fs.looksGarbled(name)) tally[name] = (tally[name] || 0) + 1;
+      });
+      const best = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
+      if (!best) { left.push(c.name); return; }
+      cat.rename(c.id, best);
+      fixed += 1;
+    });
+    this.scanGarbledCats();
+    this.setData({ result: '已把 ' + fixed + ' 个乱码类别改成笔记里的标题'
+      + (left.length ? '（还有 ' + left.length + ' 个找不到可用名字，手动改吧）' : '') });
+    wx.showModal({
+      title: '修好了 ' + fixed + ' 个',
+      content: '类别名改成了它下面卡片最常出现的标题。' + (left.length ? ' 还有 ' + left.length + ' 个没法自动判断。' : ''),
+      showCancel: false,
+    });
+  },
+
   refreshSources() {
     const list = store.readObsidianSources();
     let bytes = 0;
@@ -73,6 +117,7 @@ Page({
       keys[k] = true;
     });
 
+    this.scanGarbledCats();
     this.setData({
       sources: list.map((s) => ({
         relPath: s.relPath,
@@ -262,6 +307,13 @@ Page({
       headings += fs.countHeadings(p.root);
     });
 
+    // 乱码文件夹名（Windows 自带压缩的 GBK 文件名）——导入前先说清楚，别等导入完才发现
+    const garbled = {};
+    cards.forEach((c) => (c.folders || []).forEach((f) => {
+      if (fs.looksGarbled(f)) garbled[f] = true;
+    }));
+    this._garbledFolders = Object.keys(garbled);
+
     // 标签（给"只导入带某标签的卡"用）
     const tagMap = {};
     cards.forEach((c) => (c.tags || []).forEach((t) => { tagMap[t] = (tagMap[t] || 0) + 1; }));
@@ -276,6 +328,8 @@ Page({
       stage: 'preview',
       tagOpts, tagSel: {}, tagOn: 0,
       orphan: 0,
+      garbledFolders: this._garbledFolders.slice(0, 5),
+      garbledCount: this._garbledFolders.length,
       preview: {
         files: parsed.files.length,
         zips: this._zipCount || 0,
@@ -346,8 +400,15 @@ Page({
     }
 
     const counters = { n: 0 };
+    const garbledSet = {};
     const prepared = incoming.map((c) => {
-      const path = (opt.folder ? c.folders : []).concat(opt.head ? c.nodePath : [c.fileTitle]);
+      // ⚠️ 文件夹名可能是乱码（Windows 压缩包用 GBK 文件名，解出来按 UTF-8 读就花了）。
+      //    这种名字**绝不拿来当类别名** —— 退回到「从笔记内容里来的」标题层级/文件名。
+      const folders = (opt.folder ? c.folders : []).filter((f) => {
+        if (fs.looksGarbled(f)) { garbledSet[f] = true; return false; }
+        return true;
+      });
+      const path = folders.concat(opt.head ? c.nodePath : [c.fileTitle]);
       const r = cat.ensurePath(path, counters);
       return {
         title: c.title,
@@ -407,7 +468,10 @@ Page({
         + ' · 新增 ' + m.adds.length + ' 张'
         + ' · 未变 ' + m.keeps.length + ' 张'
         + (tagOn ? '（已按标签筛选）' : '')
-        + (archived || bytes === 0 ? '' : '　⚠️ 原文未存档，回写用不了'),
+        + (archived || bytes === 0 ? '' : '　⚠️ 原文未存档，回写用不了')
+        + (Object.keys(garbledSet).length
+            ? '　⚠️ 有 ' + Object.keys(garbledSet).length + ' 个文件夹名是乱码，已改用笔记标题当类别名'
+            : ''),
     });
     wx.showToast({ title: '导入完成', icon: 'success' });
   },

@@ -695,6 +695,31 @@ function dueList(notes, opts) {
   ].join('\n');
 }
 
+/* ==================== ⑦.4 乱码识别 ==================== */
+
+/**
+ * 这串看起来是乱码吗？
+ *
+ * 为什么会乱：Windows 自带「压缩为 zip」用的是 **GBK 文件名**，而小程序解压后按 UTF-8 读，
+ * 文件夹名就成了「Éî¶ÈÑ§Ï°」这种；而 .md 的**内容是 UTF-8**（现在笔记基本都是），所以正文是好的。
+ * 结果就是：卡片标题正常、只有拿文件夹名当的类别名是乱码。
+ *
+ * 判据（两条命中任一条即算）：
+ *   ① 出现 U+FFFD（明确的「解码失败」字符）
+ *   ② 拉丁补充区/西里尔/泰文等「中文文本里不该出现」的字符占比过高
+ */
+function looksGarbled(str) {
+  const t = String(str || '');
+  if (!t) return false;
+  if (t.indexOf('�') >= 0) return true;
+  let weird = 0;
+  for (let i = 0; i < t.length; i += 1) {
+    const c = t.charCodeAt(i);
+    if (c >= 0x80 && c <= 0x2E7F) weird += 1;        // 拉丁补充 / 希腊 / 西里尔 / 希伯来 / 泰文…
+    else if (c >= 0xE000 && c <= 0xF8FF) weird += 1; // 私用区（乱码常见落点）
+  }
+  return weird / Math.max(1, t.length) > 0.34;
+}
 /* ==================== ⑦.5 复习提醒（.ics 日历） ==================== */
 
 /**
@@ -900,5 +925,5 @@ module.exports = {
   splitFrontmatter, scan, buildTree, cardsOfNode, walkCards,
   parseMarkdown, parseVault,
   masteryOf, aggregate, annotate, applyFront, frontFields, report, paths2tree,
-  stripMarks, tierTag, isoDate, obsidianLink, dueList, icsFor, textStamp,
+  stripMarks, tierTag, isoDate, obsidianLink, dueList, icsFor, textStamp, looksGarbled,
 };

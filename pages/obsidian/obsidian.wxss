@@ -333,3 +333,12 @@ page {
 .orphan-btn { margin-top: 14rpx; }
 
 .done-sub { font-size: 23rpx; color: #5A6072; margin-top: 8rpx; line-height: 1.6; }
+
+/* ---------- 乱码文件夹/类别名提示 ---------- */
+.garble-warn {
+  margin-top: 16rpx; padding: 16rpx 18rpx; border-radius: 14rpx;
+  background: #FFF7E8; color: #B7791F; font-size: 22rpx; line-height: 1.65;
+  border-left: 6rpx solid #E8A33D;
+}
+.garble-tip { margin-top: 8rpx; color: #9A7B3A; font-size: 21rpx; }
+.garble-fix { margin-top: 12rpx; }

@@ -178,6 +178,11 @@
         两个都关掉 = 全部塞进「未分类」，只把内容当卡片。
       </view>
 
+      <view class="garble-warn" wx:if="{{garbledCount > 0}}">
+        ⚠️ 有 {{garbledCount}} 个文件夹名是乱码（{{garbledFolders.join('、')}}）
+        <view class="garble-tip">多半是 zip 用了 GBK 文件名（Windows 自带压缩就这样）。导入时不会拿它们当类别名，会改用笔记里的标题；想彻底干净，就在电脑上用英文文件夹名重压一次。</view>
+      </view>
+
       <!-- 只导入带这些标签的卡片（不选 = 全都导） -->
       <view class="tag-sec" wx:if="{{tagOpts.length}}">
         <view class="subtle">只导入带这些标签的卡片（不选 = 全部导入）</view>
@@ -284,6 +289,12 @@
         <view class="stat-txt">个文件 · 约 {{sourceStats.kb}} KB</view>
       </view>
       <view class="subtle">回写要拿原文件逐行改，所以导入时留了一份原文副本。</view>
+      <view class="garble-warn" wx:if="{{garbledCatCount > 0}}">
+        ⚠️ 有 {{garbledCatCount}} 个类别名是乱码（{{garbledCats.join('、')}}）—— 多半是导入时拿了乱码文件夹名当类别
+        <view hover-class="hover-dim" class="btn-ghost garble-fix" bindtap="onFixGarbledCats">
+          一键改成笔记里的标题（{{garbledCatCount}} 个）
+        </view>
+      </view>
 
       <view class="src-list" wx:if="{{sources.length}}">
         <view class="src-item" wx:for="{{sources}}" wx:key="relPath">
