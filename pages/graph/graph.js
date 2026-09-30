@@ -208,8 +208,11 @@ Page({
     if (!reused) {
       const out = graphLib.layout(g, this.W, this.H, {});
       out.nodes.forEach((n, i) => { this.nodes[i].x = n.x; this.nodes[i].y = n.y; });
+      this.center = out.center;
       this.saveLayout();
     }
+    // 扇区与环半径：坐标无关，缓存命中时也要补上（否则画不出「地盘扇形」）
+    graphLib.annotateSectors(this.nodes, this.center);
     if (playEnter && !reused) {
       this.nodes.forEach((n) => { n._g = 0; });
       this._enterT0 = Date.now();
@@ -252,6 +255,7 @@ Page({
     try {
       const c = wx.getStorageSync(KEY_LAYOUT);
       if (!c || c.sig !== this._sig || !c.pos) return false;
+      this.center = c.center || null;
       let hit = 0;
       this.nodes.forEach((n) => {
         const p = c.pos[n.id];
@@ -266,7 +270,7 @@ Page({
     try {
       const pos = {};
       this.nodes.forEach((n) => { pos[n.id] = [Math.round(n.x * 10) / 10, Math.round(n.y * 10) / 10]; });
-      wx.setStorageSync(KEY_LAYOUT, { sig: this._sig, at: Date.now(), pos });
+      wx.setStorageSync(KEY_LAYOUT, { sig: this._sig, at: Date.now(), pos, center: this.center });
     } catch (e) { /* 存不下就算了，下次重算 */ }
   },
 
@@ -552,6 +556,28 @@ Page({
     if (lod === 0) (this.blobs || []).forEach((b) => { blobOf[b.rawId] = b; });
     const hiddenByBlob = (n) => lod === 0 && (n.type === 'cat' ? !!blobOf[n.rawId] : !!blobOf[n.cat]);
 
+    // ---- 顶级类别的地盘扇形 ----
+    // 一个顶级类别 = 一整瓣（含它的子类）。子类永远落在父类这一瓣里，
+    // 所以「谁继承谁」是**看出来的**，不用去追虚线。
+    const ctr = this.center;
+    if (ctr) {
+      const TINT = ['rgba(59,111,245,.055)', 'rgba(52,168,83,.055)', 'rgba(240,133,31,.055)',
+                    'rgba(124,91,217,.055)', 'rgba(31,151,171,.055)'];
+      let ti = 0;
+      this.nodes.forEach((n) => {
+        if (n.type !== 'cat' || !n.sec) return;
+        if (n.sec.depth !== 0) return;                       // 只给顶级类别画地盘
+        const hot = this.data.focus && this.data.focus.id === n.rawId;
+        ctx.beginPath();
+        ctx.moveTo(ctr.x, ctr.y);
+        ctx.arc(ctr.x, ctr.y, (n.ring || 0) + 26, n.sec.start, n.sec.end);
+        ctx.closePath();
+        ctx.fillStyle = hot ? 'rgba(59,111,245,.12)' : TINT[ti % TINT.length];
+        ctx.fill();
+        ti += 1;
+      });
+    }
+
     // ---- 边 ----
     // 选中某张卡时，它的关联边加粗高亮，其余降一档，关系一眼可见
     this.edges.forEach((e) => {
@@ -579,9 +605,10 @@ Page({
         ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
       } else if (e.kind === 'tree') {
-        ctx.strokeStyle = 'rgba(150,160,180,' + (0.85 * alpha) + ')';
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash([4, 3]);
+        // 类别父子：画成更实的径向短线（父在外环、子在内环，几乎是一条向内的线）
+        ctx.strokeStyle = 'rgba(120,132,152,' + (0.9 * alpha) + ')';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([3, 3]);
       } else {
         ctx.strokeStyle = 'rgba(195,204,219,' + (0.55 * alpha) + ')';
         ctx.lineWidth = 1;

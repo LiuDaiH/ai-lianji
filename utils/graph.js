@@ -79,6 +79,72 @@ function sectors(catList, notes, opts) {
 }
 
 /**
+ * 层级扇区：**先把整圆分给顶级类别，再在父类的扇区里切给子类**
+ *
+ * 这样「继承关系」就变成了图像上的**嵌套**：子类永远落在父类那一瓣里，
+ * 而且半径再往里一层。一眼能看出「子类属于谁」，不用去认虚线。
+ *
+ * @param catList 类别节点（需带 rawId 与 parent=父类别 id）
+ * @param notes   卡片节点（需带 cat=类别 rawId）
+ * @returns { [rawId]: { start, end, mid, span, depth, count } }  count = 子树卡片数
+ */
+function hierSectors(catList, notes, opts) {
+  const o = opts || {};
+  const minSpan = clamp(Number(o.minSpan) || 0.3, 0, Math.PI * 2);
+  const counts = {};
+  (notes || []).forEach((n) => {
+    if (!n) return;
+    const cid = n.cat || '__none__';
+    counts[cid] = (counts[cid] || 0) + 1;
+  });
+
+  const list = (catList || []).map((c) => {
+    const id = c.rawId || c.id;
+    return { id, parent: c.parent || null, own: counts[id] || 0, children: [] };
+  });
+  if (!list.length) return {};
+
+  const byId = {};
+  list.forEach((x) => { byId[x.id] = x; });
+  const roots = [];
+  list.forEach((x) => {
+    if (x.parent && byId[x.parent]) byId[x.parent].children.push(x);
+    else roots.push(x);
+  });
+
+  const sumOf = (x) => {
+    let n = x.own;
+    x.children.forEach((c) => { n += sumOf(c); });
+    x.sub = Math.max(1, n);
+    return n;
+  };
+  roots.forEach(sumOf);
+
+  const out = {};
+  const place = (nodes, start, end, depth) => {
+    const span = end - start;
+    const total = nodes.reduce((a, x) => a + x.sub, 0) || 1;
+    const free = span - minSpan * nodes.length;
+    const raw = nodes.map((x) => minSpan + (free > 0 ? free * (x.sub / total) : 0));
+    const sum = raw.reduce((a, b) => a + b, 0) || 1;
+    const k = span / sum;
+    let ang = start;
+    nodes.forEach((x, i) => {
+      const sp = raw[i] * k;
+      out[x.id] = { start: ang, end: ang + sp, mid: ang + sp / 2, span: sp, depth, count: x.sub };
+      if (x.children.length) {
+        // 子类在父类扇区里再切一刀，两端各留 12% 边距，免得和邻居贴住
+        const pad = sp * 0.12;
+        place(x.children, ang + pad, ang + sp - pad, depth + 1);
+      }
+      ang += sp;
+    });
+  };
+  place(roots, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2, 0);
+  return out;
+}
+
+/**
  * 计算布局
  * @param {{nodes: Array, edges: Array}} graph
  * @param {number} W 画布宽（逻辑像素）
@@ -109,16 +175,18 @@ function layout(graph, W, H, opts) {
   const cats = nodes.filter((n) => n.type === 'cat');
   const notes = nodes.filter((n) => n.type === 'note');
 
-  // ---- 类别节点：环形排布，角度按卡片数分配（大类别占大扇区），并固定 ----
-  const sec = sectors(cats, notes);
+  // ---- 类别节点：角度按「子树卡片数」分配，**半径按层级往里收** ----
+  //      顶级类别在最外环、它的子类在更内一环、且落在同一个角度范围里
+  //      ⇒ 继承关系直接看得见（嵌套 + 同心环），不用去追虚线
+  const sec = hierSectors(cats, notes);
   const secOf = (cat) => sec[cat.rawId || cat.id] || sec[cat.id] || null;
-  const baseR = Math.min(W, H) * 0.32;
+  const baseR = Math.min(W, H) * 0.37;
   cats.forEach((c) => {
-    const s = secOf(c) || { mid: 0, count: 0 };
-    // 大类别稍微往外站一点，给扇区里的卡片留出弧长
-    const R = baseR * (1 + Math.min(0.34, (s.count || 0) / 260));
-    c.x = cx + Math.cos(s.mid) * R;
-    c.y = cy + Math.sin(s.mid) * R;
+    const s2 = secOf(c) || { mid: 0, count: 0, depth: 0, span: Math.PI * 2 };
+    const depth = Math.min(2, s2.depth || 0);
+    const R = baseR * (1 - depth * 0.28);
+    c.x = cx + Math.cos(s2.mid) * R;
+    c.y = cy + Math.sin(s2.mid) * R;
     c.fixed = true;
   });
 
@@ -232,7 +300,32 @@ function layout(graph, W, H, opts) {
     n.y = pad + (n.y - b.minY) * scale;
   });
 
-  return { nodes, edges: graph.edges, box: bounds(nodes) };
+  // 圆心也跟着归一化：画「顶级类别的地盘扇形」要用它
+  const center = {
+    x: pad + (cx - b.minX) * scale,
+    y: pad + (cy - b.minY) * scale,
+  };
+  return { nodes, edges: graph.edges, box: bounds(nodes), center };
+}
+
+/**
+ * 把扇区信息与「环半径」挂到类别节点上，供绘制「顶级类别地盘扇形」用
+ *
+ * 环半径按**归一化后的真实距离**算（= 到圆心的距离），所以布局缓存命中、
+ * 不跑 layout 的情况下也能正确补上。
+ */
+function annotateSectors(nodes, center) {
+  const cats = (nodes || []).filter((n) => n && n.type === 'cat');
+  const notes = (nodes || []).filter((n) => n && n.type === 'note');
+  const sec = hierSectors(cats, notes);
+  const c0 = center || { x: 0, y: 0 };
+  cats.forEach((c) => {
+    const s2 = sec[c.rawId || c.id]
+      || { start: 0, end: Math.PI * 2, mid: 0, span: Math.PI * 2, depth: 0, count: 0 };
+    c.sec = { start: s2.start, end: s2.end, mid: s2.mid, span: s2.span, depth: s2.depth || 0 };
+    c.ring = Math.hypot(c.x - c0.x, c.y - c0.y);
+  });
+  return sec;
 }
 
 /** 包围盒 */
@@ -400,7 +493,7 @@ const LEVEL_COLOR = {
 };
 
 module.exports = {
-  layout, sectors, bounds, fitView,
+  layout, sectors, hierSectors, annotateSectors, bounds, fitView,
   lodOf, lodText, blobsOf, inView, BLOB_MIN,
   hitTest, neighborsOf, radiusOf, LEVEL_COLOR, MAX_NOTES, trimNotes, clamp,
 };

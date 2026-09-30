@@ -8,10 +8,9 @@
       <view class="h-title">知识图谱</view>
       <view class="h-ops">
         <view class="h-help" bindtap="onCardList" hover-class="hover-dim">☰ 清单</view>
-        <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 怎么看</view>
+        <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 用法</view>
       </view>
     </view>
-    <view class="h-sub">点节点看内容 · 缩小会把大类别收成「带数字的圈」，点圈展开 · 双指缩放看细节</view>
     <view class="h-stats">
       <text class="hs-n">{{stats.notes}}</text><text class="hs-l">卡片</text>
       <text class="hs-sep">·</text>
@@ -20,7 +19,7 @@
       <text class="hs-n">{{stats.links}}</text><text class="hs-l">条关联</text>
     </view>
     <view class="h-warn" wx:if="{{trimmed > 0}}">
-      卡片较多，图上只画了关联最多的 {{shown}} 张。点开类别，列表里仍是全部。
+      图上只画了 {{shown}} 张（点类别看全部）
     </view>
   </view>
 
@@ -61,8 +60,8 @@
       <view class="dot" style="background:{{item.color}}"></view>
       <text>{{item.label}}</text>
     </view>
-    <view class="lg"><view class="line solid"></view><text>卡片关联</text></view>
-    <view class="lg"><view class="line dash"></view><text>类别层级</text></view>
+    <view class="lg"><view class="line solid"></view><text>有关联</text></view>
+    <view class="lg"><view class="line dash"></view><text>父子</text></view>
   </view>
 
   <!-- ============ 底部抽屉：点类别就看它下面有哪些卡片 ============ -->

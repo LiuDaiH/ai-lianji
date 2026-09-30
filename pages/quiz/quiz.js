@@ -23,6 +23,8 @@ Page({
     aiHinting: false, aiHintUsed: false, aiDiag: null, aiDiagLoading: false,
     wrongList: [], isRetry: false, rangeText: '',
     canUndo: false, answered: 0,
+    // 首次进页引导
+    tourActive: false, tourFlow: 'quiz', pageStyle: '',
   },
 
   onLoad() {
@@ -53,6 +55,7 @@ Page({
       return;
     }
     this.setData({ quiz, current: quiz[0], typeLabel: TYPE_LABEL[quiz[0].type] || '' });
+    this.maybeTour();     // 第一次进小测：放一遍引导
   },
 
   // ---------- 各题型交互 ----------
@@ -300,4 +303,37 @@ Page({
 
   onBackHome() { wx.switchTab({ url: '/pages/index/index' }); },
   onBackPractice() { wx.switchTab({ url: '/pages/practice/practice' }); },
+
+
+  /* ==================== 首次进页引导 ==================== */
+  // ⚠️ 标记要在**一开始**就写：只写在「走完/跳过」里，用户没走完就会每次重放
+  maybeTour() {
+    if (wx.getStorageSync('sc_tour_done_quiz')) return;
+    wx.setStorageSync('sc_tour_done_quiz', 1);
+    this.setData({ tourActive: true });
+  },
+
+  notifyCoach(action) {
+    const c = this.selectComponent('#coach');
+    if (c) c.notify(action);
+  },
+
+  onTourLock(e) { this.setData({ pageStyle: e.detail.locked ? 'overflow: hidden;' : '' }); },
+
+  onPageScroll() {
+    if (!this.data.tourActive) return;
+    const c = this.selectComponent('#coach');
+    if (c) c.relocate();
+  },
+
+  onTourClose() {
+    wx.setStorageSync('sc_tour_done_quiz', 1);
+    this.setData({ tourActive: false, pageStyle: '' });
+  },
+
+  onRestartTour() {
+    this.setData({ tourActive: false });
+    setTimeout(() => this.setData({ tourActive: true, tourFlow: 'quiz' }), 30);
+  },
+
 });

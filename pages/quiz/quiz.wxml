@@ -1,4 +1,6 @@
 <!-- pages/quiz/quiz.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
 <view class="container">
 
   <view class="empty" wx:if="{{emptyTip}}">{{emptyTip}}</view>
@@ -6,7 +8,7 @@
   <block wx:elif="{{!finished && current}}">
 
     <!-- 顶部：题型 + 进度 + 撤销 -->
-    <view class="bar">
+    <view class="bar" id="qbar">
       <view class="tag">{{typeLabel}}{{isRetry ? ' · 重练' : ''}}</view>
       <text class="subtle prog">{{idx + 1}} / {{quiz.length}} · 答对 {{rightCount}}</text>
       <view class="undo {{canUndo ? '' : 'off'}}" bindtap="onUndo">↩ 撤销</view>
@@ -14,7 +16,7 @@
 
     <!-- ===== flip ===== -->
     <block wx:if="{{current.type === 'flip'}}">
-      <view class="card">
+      <view class="card" id="qcard">
         <view class="qtip subtle">先自己回忆，再翻面核对</view>
         <view class="flip-title">{{current.stem}}</view>
         <view class="hint-box" wx:if="{{hintText}}">{{hintText}}</view>
@@ -30,7 +32,7 @@
           <view class="ai-panel-note">只给方向，不会把答案说出来 —— 想起来这件事必须你自己做</view>
         </view>
 
-        <view class="row">
+        <view class="row" id="qops">
           <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onHint"
                 wx:if="{{current.hints.length > hintUsed}}">本地提示 {{hintUsed}}/{{current.hints.length}}</view>
           <view hover-class="hover-dim" class="btn-primary f1" bindtap="onReveal">看答案</view>
@@ -45,7 +47,7 @@
 
     <!-- ===== choice ===== -->
     <block wx:elif="{{current.type === 'choice'}}">
-      <view class="card">
+      <view class="card" id="qcard">
         <view class="qtip subtle">下面这段说的是哪个知识点？</view>
         <view class="stem">{{current.stem}}</view>
       </view>
@@ -55,7 +57,7 @@
 
     <!-- ===== judge ===== -->
     <block wx:elif="{{current.type === 'judge'}}">
-      <view class="card">
+      <view class="card" id="qcard">
         <view class="qtip subtle">这组「知识点 → 内容」配对正确吗？</view>
         <view class="flip-title">{{current.stem}}</view>
         <view class="revealed">{{current.text}}</view>
@@ -70,7 +72,7 @@
 
     <!-- ===== blank ===== -->
     <block wx:elif="{{current.type === 'blank'}}">
-      <view class="card">
+      <view class="card" id="qcard">
         <view class="qtip subtle">把空补上</view>
         <view class="flip-title">{{current.stem}}</view>
         <view class="blank-text">{{current.text}}</view>
@@ -84,7 +86,7 @@
 
     <!-- ===== recall ===== -->
     <block wx:else>
-      <view class="card">
+      <view class="card" id="qcard">
         <view class="qtip subtle">
           把这个知识点写出来{{aiOn ? '（AI 会按语义判分，换个说法说对了也算对）' : '（命中关键词越多越好）'}}
         </view>
@@ -150,5 +152,9 @@
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onBackPractice">再练一轮</view>
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onBackHome">回到卡片列表</view>
   </view>
+
+
+  <coach id="coach" flow="{{tourFlow}}" active="{{tourActive}}"
+         bind:close="onTourClose" bind:lock="onTourLock" />
 
 </view>
