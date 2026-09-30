@@ -3,6 +3,11 @@
 
 <view class="container">
 
+  <view class="hero-band">
+    <view class="hb-title">类别</view>
+    <view class="hb-sub">发散图看结构 · 树图看层级 · 列表做精确操作</view>
+  </view>
+
   <!-- ============ 视图切换 ============ -->
   <view class="seg-tabs three" id="cattabs">
     <view class="seg-tab {{view === 'radial' ? 'on' : ''}}" data-v="radial" bindtap="onSwitchView">

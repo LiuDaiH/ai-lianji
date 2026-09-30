@@ -62,6 +62,9 @@ Page({
   onTourClose() { wx.setStorageSync('sc_tour_done_capture', 1); this.setData({ tourActive: false, pageStyle: '' }); },
   onRestartTour() { this.setData({ tourActive: true, tourFlow: 'capture' }); },
 
+  /** 这一页也能去 Obsidian 导入 —— 两条路都是「往里加内容」，别让人来回找 */
+  goObsidianImport() { wx.switchTab({ url: '/pages/obsidian/obsidian' }); },
+
   loadCats() {
     const all = cat.list();
     this.setData({

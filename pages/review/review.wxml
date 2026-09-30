@@ -1,6 +1,11 @@
 <!-- pages/review/review.wxml -->
 <view class="container">
 
+  <view class="hero-band">
+    <view class="hb-title">复习</view>
+    <view class="hb-sub">按遗忘曲线排的优先级 —— 答对就往后推，答错就提前回来</view>
+  </view>
+
   <view class="cat-bar" id="cat-bar" bindtap="onOpenPicker" hover-class="hover-dim">
     <view class="cat-bar-label">范围</view>
     <view class="cat-bar-value">{{rangeText}}</view>

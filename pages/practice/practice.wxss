@@ -12,10 +12,18 @@ page {
 
 /* pages/practice/practice.wxss */
 .hero {
-  background: linear-gradient(135deg, #5B4BD6 0%, #8B7BF0 100%);
-  border-radius: 24rpx; padding: 40rpx 32rpx; color: #FFF; margin-bottom: 22rpx;
+  position: relative; overflow: hidden;
+  background: var(--hero-grad);
+  border-radius: 24rpx; padding: 40rpx 32rpx; color: var(--hero-ink); margin-bottom: 22rpx;
+  box-shadow: var(--hero-shadow);
   animation: fadeUp .36s cubic-bezier(.2,.9,.3,1.1) both;
 }
+.hero::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  background-image: repeating-linear-gradient(58deg, rgba(255,255,255,.055) 0 1rpx, rgba(255,255,255,0) 1rpx 26rpx);
+  pointer-events: none;
+}
+.hero-title, .hero-sub { position: relative; }
 .hero-title { font-size: 40rpx; font-weight: 700; }
 .hero-sub { font-size: 24rpx; opacity: .88; margin-top: 10rpx; line-height: 1.6; }
 

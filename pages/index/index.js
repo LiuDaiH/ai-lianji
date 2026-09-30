@@ -174,7 +174,28 @@ Page({
   },
   goPractice() { wx.switchTab({ url: '/pages/practice/practice' }); },
   goHelp() { wx.navigateTo({ url: '/pages/help/help' }); },
-  goCapture() { wx.navigateTo({ url: '/pages/capture/capture' }); },
+  /**
+   * 「＋」= 加卡片。两条路都是加卡片，就不该藏在两个地方：
+   *   ① 粘贴讲义切卡（进录入页）　② 从 Obsidian 导入 .md / zip（进 Obsidian 板块）
+   * 用系统菜单问一句，比在界面上摆两个加号清楚得多。
+   */
+  onAddCard() {
+    wx.showActionSheet({
+      itemList: ['粘贴讲义 / 文字切卡', '从 Obsidian 导入 .md / zip'],
+      success: (r) => {
+        if (r.tapIndex === 0) this.goCapture();
+        else wx.switchTab({ url: '/pages/obsidian/obsidian' });
+      },
+      fail: () => {},
+    });
+  },
+
+  goCapture() {
+    // 引导要求「用户真的点了录入入口」才前进；从菜单进也算数
+    const c = this.selectComponent('#coach');
+    if (c) c.notify('goCapture');
+    wx.navigateTo({ url: '/pages/capture/capture' });
+  },
   goReview() { wx.switchTab({ url: '/pages/review/review' }); },
 
   onTapNote(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); },

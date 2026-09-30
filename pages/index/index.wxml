@@ -109,7 +109,7 @@
 
   <view class="empty" wx:if="{{!isEmpty && view.length === 0}}">这个范围内没有卡片</view>
 
-  <view class="fab breathe" id="fab" catchtap="goCapture" hover-class="hover-dim">＋</view>
+  <view class="fab breathe" id="fab" catchtap="onAddCard" hover-class="hover-dim">＋</view>
 
   <cat-picker show="{{showPicker}}" active="{{activeCat}}"
               bind:pick="onPickCat" bind:change="onCatChange" />

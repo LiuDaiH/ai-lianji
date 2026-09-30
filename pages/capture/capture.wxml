@@ -3,6 +3,14 @@
 
 <view class="container">
 
+  <view class="hero-band">
+    <view class="hb-title">加卡片</view>
+    <view class="hb-sub">粘一段讲义，自动切成一张张会考你的卡片</view>
+    <view class="hb-link" id="go-obsidian" bindtap="goObsidianImport" hover-class="hover-dim">
+      或者从 Obsidian 导入 .md / zip ›
+    </view>
+  </view>
+
   <!-- ===================== 阶段一：输入 + 解析预览 ===================== -->
   <block wx:if="{{stage === 'input'}}">
 

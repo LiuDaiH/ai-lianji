@@ -281,3 +281,27 @@ page {
   .btn-ghost { background: #232A36; color: var(--ink); }
   .btn-soft { background: #232A36; color: var(--ink-2); }
 }
+
+/* ==================== 通用 hero 带：所有页面头部统一视觉 ====================
+   用 app.wxss 里的 --hero-grad 变量（深墨蓝 + 暖光 + 青绿光），
+   再加一层斜纹 —— 改一处，全站一起变。
+*/
+.hero-band {
+  position: relative; overflow: hidden;
+  border-radius: 24rpx; padding: 34rpx 30rpx; margin-bottom: 20rpx;
+  background: var(--hero-grad);
+  box-shadow: var(--hero-shadow);
+  color: var(--hero-ink);
+}
+.hero-band::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  background-image: repeating-linear-gradient(58deg, rgba(255,255,255,.055) 0 1rpx, rgba(255,255,255,0) 1rpx 26rpx);
+  pointer-events: none;
+}
+.hb-title { position: relative; font-size: 38rpx; font-weight: 700; line-height: 1.35; }
+.hb-sub { position: relative; font-size: 23rpx; color: var(--hero-ink-2); margin-top: 8rpx; line-height: 1.65; }
+.hb-link {
+  position: relative; display: inline-block; margin-top: 18rpx;
+  font-size: 24rpx; color: #FFD79A; padding: 10rpx 22rpx; border-radius: 999rpx;
+  background: rgba(255,255,255,.15);
+}
