@@ -143,7 +143,7 @@ page { height: 100%; overflow: hidden; }
 }
 .sh-ph { color: #A8AEBC; }
 
-/* ==================== 全屏搜索 ====================
+/* ==================== 全屏搜索 ==================== */
 .sp {
   position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 30;
   background: #FFFFFF; display: flex; flex-direction: column;
