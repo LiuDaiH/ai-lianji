@@ -695,6 +695,64 @@ function dueList(notes, opts) {
   ].join('\n');
 }
 
+/* ==================== ⑦.5 复习提醒（.ics 日历） ==================== */
+
+/**
+ * 生成一份可导入手机日历的 .ics
+ *
+ * 为什么用日历而不是推送：小程序的订阅消息需要**服务端**按模板发，
+ * 而这个项目是零后端设计。日历是唯一"不需要服务器也能到点提醒"的路子 ——
+ * 导入一次，之后系统自己提醒你。
+ *
+ * 每天一个全天事件：标题写「复习 N 张」，描述里列出当天该练的卡片。
+ */
+function icsFor(notes, opts) {
+  const o = opts || {};
+  const days = typeof o.days === 'number' ? o.days : 7;
+  const now = o.now || Date.now();
+  const t0 = startOfDay(now);
+  const CRLF = String.fromCharCode(13) + String.fromCharCode(10);
+
+  const buckets = {};
+  (notes || []).forEach((n) => {
+    if (!n || !n.title || !n.dueAt) return;
+    const d = startOfDay(n.dueAt);
+    if (n.dueAt < t0 || d > t0 + days * DAY_MS) return;
+    const key = isoDate(d).replace(/-/g, '');
+    (buckets[key] = buckets[key] || []).push(n);
+  });
+
+  const esc = (t) => String(t || '')
+    .replace(/[\;,]/g, ' ')
+    .replace(/[\r\n]+/g, ' ');
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//AI-' + esc('\u94fe\u8bb0') + '//study-reminder//CN',
+    'CALSCALE:GREGORIAN',
+  ];
+  Object.keys(buckets).sort().forEach((k) => {
+    const arr = buckets[k].slice().sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0));
+    const end = new Date(Number(k.slice(0, 4)), Number(k.slice(4, 6)) - 1, Number(k.slice(6, 8)) + 1);
+    const endKey = isoDate(end.getTime()).replace(/-/g, '');
+    const titles = arr.slice(0, 12).map((n) => n.title);
+    lines.push(
+      'BEGIN:VEVENT',
+      'UID:' + k + '-' + arr.length + '@ai-lianji',
+      'DTSTAMP:' + isoDate(now).replace(/-/g, '') + 'T000000Z',
+      'DTSTART;VALUE=DATE:' + k,
+      'DTEND;VALUE=DATE:' + endKey,
+      'SUMMARY:' + esc('\u590d\u4e60 ' + arr.length + ' \u5f20\u5361\u7247'),
+      'DESCRIPTION:' + esc(titles.join('\u3001') + (arr.length > 12 ? ' \u7b49' : '')),
+      'TRANSP:TRANSPARENT',
+      'END:VEVENT'
+    );
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join(CRLF) + CRLF;
+}
+
 /* ==================== ⑧ 汇总报告 ==================== */
 
 function tree2lines(nodes, depth, rows) {
@@ -832,5 +890,5 @@ module.exports = {
   splitFrontmatter, scan, buildTree, cardsOfNode, walkCards,
   parseMarkdown, parseVault,
   masteryOf, aggregate, annotate, applyFront, frontFields, report, paths2tree,
-  stripMarks, tierTag, isoDate, obsidianLink, dueList,
+  stripMarks, tierTag, isoDate, obsidianLink, dueList, icsFor,
 };

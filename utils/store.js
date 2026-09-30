@@ -214,14 +214,67 @@ function stats() {
  * 只存 markdown 纯文本，几百 KB 级别，远小于 10MB 上限。
  */
 const KEY_OBS = 'sc_obsidian';
+const OBS_CHUNK = 380000;          // 每片字符数（避开单键 1MB 上限）
 
+/**
+ * ⚠️ 为什么必须分片：
+ *   微信 storage **单个 key 上限 1MB**。原来把整个 vault 的原文塞进一个 key，
+ *   为了"安全"又把上限设成 2MB —— 结果超过 1MB 时 setStorageSync 直接抛异常被 catch 掉，
+ *   **存档没存上、回写功能静默失效**，而界面上只有一行小字。分片后才真的能用大 vault。
+ */
 function readObsidianSources() {
-  try { return wx.getStorageSync(KEY_OBS) || []; } catch (e) { return []; }
+  try {
+    const m = wx.getStorageSync(KEY_OBS);
+    if (!m) return [];
+    if (Array.isArray(m)) return m;                       // 兼容旧数据（单键整存）
+    if (!m.chunks) return [];
+    let raw = '';
+    for (let i = 0; i < m.chunks; i += 1) {
+      raw += wx.getStorageSync(KEY_OBS + '_' + i) || '';
+    }
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
 }
 
 function saveObsidianSources(list) {
-  try { wx.setStorageSync(KEY_OBS, list || []); return true; }
-  catch (e) { console.error('[store] Obsidian 存档失败', e); return false; }
+  const text = JSON.stringify(list || []);
+  try {
+    // 清掉可能残留的旧分片
+    const old = wx.getStorageSync(KEY_OBS);
+    if (old && old.chunks) {
+      for (let i = 0; i < old.chunks; i += 1) {
+        try { wx.removeStorageSync(KEY_OBS + '_' + i); } catch (e) { /* ignore */ }
+      }
+    }
+    if (text.length <= OBS_CHUNK) {
+      wx.setStorageSync(KEY_OBS, { chunks: 1, bytes: text.length, at: Date.now() });
+      wx.setStorageSync(KEY_OBS + '_0', text);
+      return true;
+    }
+    const n = Math.ceil(text.length / OBS_CHUNK);
+    for (let i = 0; i < n; i += 1) {
+      wx.setStorageSync(KEY_OBS + '_' + i, text.slice(i * OBS_CHUNK, (i + 1) * OBS_CHUNK));
+    }
+    wx.setStorageSync(KEY_OBS, { chunks: n, bytes: text.length, at: Date.now() });
+    return true;
+  } catch (e) {
+    console.error('[store] Obsidian 存档失败（可能超出容量）', e);
+    // 失败要留下痕迹：把清单也清掉，免得读到半截数据
+    try { wx.setStorageSync(KEY_OBS, { chunks: 0, bytes: 0, at: Date.now(), failed: true }); } catch (e2) { /* ignore */ }
+    return false;
+  }
+}
+
+/** 存档占了多少（给界面显示用） */
+function obsidianBytes() {
+  try {
+    const m = wx.getStorageSync(KEY_OBS);
+    if (!m) return 0;
+    if (Array.isArray(m)) return JSON.stringify(m).length;
+    return m.bytes || 0;
+  } catch (e) { return 0; }
 }
 
 /** 合并式写入：同一个 relPath 覆盖旧版本 */
@@ -235,7 +288,17 @@ function upsertObsidianSources(items) {
   return merged;
 }
 
-function clearObsidianSources() { saveObsidianSources([]); }
+function clearObsidianSources() {
+  try {
+    const old = wx.getStorageSync(KEY_OBS);
+    if (old && old.chunks) {
+      for (let i = 0; i < old.chunks; i += 1) {
+        try { wx.removeStorageSync(KEY_OBS + '_' + i); } catch (e) { /* ignore */ }
+      }
+    }
+  } catch (e) { /* ignore */ }
+  saveObsidianSources([]);
+}
 
 /* ==================== 介绍弹窗的闸门 ====================
  * app.onLaunch 每次插一面旗子，哪个页面先加载就由谁弹介绍，然后把旗子取走。
@@ -255,5 +318,6 @@ module.exports = {
   addLog, readLogs, addQuizResult, readQuizResults,
   exportJSON, importJSON, stats,
   readObsidianSources, saveObsidianSources, upsertObsidianSources, clearObsidianSources,
+  obsidianBytes,
   takeIntroPending,
 };

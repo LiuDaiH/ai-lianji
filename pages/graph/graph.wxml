@@ -7,8 +7,8 @@
     <view class="h-row">
       <view class="h-title">知识图谱</view>
       <view class="h-ops">
-        <view class="h-help" bindtap="onCardList" hover-class="hover-dim">☰ 清单</view>
-        <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 用法</view>
+        <view class="h-help" bindtap="onCardList" hover-class="hover-dim">☰ 找卡片</view>
+        <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 怎么用</view>
       </view>
     </view>
     <view class="h-stats">
@@ -27,7 +27,8 @@
     <view class="tool {{onlyLinked ? 'on' : ''}}" bindtap="onToggleFilter" hover-class="hover-dim">
       {{onlyLinked ? '只看关联' : '显示全部'}}
     </view>
-    <view class="tool" bindtap="onRelayout" hover-class="hover-dim">重排</view>
+    <view class="tool {{canUndo ? 'warn' : ''}}" bindtap="{{canUndo ? 'onUndoLayout' : 'onRelayout'}}"
+          hover-class="hover-dim">{{canUndo ? '↩ 撤销' : '重排'}}</view>
     <view class="tool" bindtap="onFit" hover-class="hover-dim">适配</view>
     <view class="tool {{focus ? 'on' : ''}}" bindtap="onFocusTool" hover-class="hover-dim">◎ 聚焦</view>
   </view>
@@ -79,6 +80,10 @@
       </view>
       <view class="sh-btn ghost" bindtap="closeSheet" hover-class="hover-dim">收起</view>
     </view>
+
+    <input class="sh-search" wx:if="{{sheet.kind === 'cards'}}" value="{{cardSearch}}"
+           bindinput="onSheetSearch" confirm-type="search"
+           placeholder="搜标题 / 类别，比如「过拟合」" placeholder-class="sh-ph" />
 
     <scroll-view scroll-y class="sh-list" style="height:{{sheet.listH}}px">
       <view class="sh-item" wx:for="{{sheet.items}}" wx:key="id" data-id="{{item.id}}"

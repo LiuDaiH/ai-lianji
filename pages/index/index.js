@@ -120,10 +120,10 @@ Page({
   onIntroClose() {
     wx.setStorageSync(INTRO_DONE, 1);
     this.setData({ showIntro: false });
-    // 看完介绍 → 接着走一遍操作引导（首次）
-    if (!wx.getStorageSync(TOUR_DONE)) {
-      setTimeout(() => this.setData({ tourActive: true, tourFlow: 'index' }), 340);
-    }
+    // ⚠️ 看完介绍**不再接着弹引导** —— 新用户一进来连吃两个全屏（介绍 + 引导）会懵，
+    //    要先点两次"下一步"才看见界面。改成本次记一笔 pending，等下次回到首页再放
+    //    （那时他已经摸过界面，引导才对得上号）。
+    if (!wx.getStorageSync(TOUR_DONE)) wx.setStorageSync('sc_tour_pending', 'index');
   },
 
   onTourLock(e) { this.setData({ pageStyle: e.detail.locked ? 'overflow: hidden;' : '' }); },

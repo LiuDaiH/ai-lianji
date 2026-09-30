@@ -1,4 +1,6 @@
 <!-- pages/detail/detail.wxml -->
+<page-meta page-style="{{pageStyle}}"></page-meta>
+
 <view class="container">
 
   <block wx:if="{{note}}">
@@ -32,7 +34,7 @@
       </view>
 
       <!-- ============ 掌握轨迹 ============ -->
-      <view class="card">
+      <view class="card" id="dtrack">
         <view class="title">掌握轨迹</view>
         <view class="subtle">每次复习后系统安排的间隔 —— 它变长，说明记忆在巩固</view>
         <view class="track">
@@ -49,7 +51,7 @@
       </view>
 
       <!-- ============ 为什么现在复习它 ============ -->
-      <view class="card">
+      <view class="card" id="dwhy">
         <view class="why-head" bindtap="onToggleWhy" hover-class="hover-dim">
           <view class="title">为什么现在复习它</view>
           <view class="why-arrow">{{showWhy ? '收起 ▴' : '展开 ▾'}}</view>
@@ -77,7 +79,7 @@
       </view>
 
       <!-- ============ 关联卡片（链） ============ -->
-      <view class="card">
+      <view class="card" id="dlink">
         <view class="lk-head">
           <view class="title">关联卡片</view>
           <view class="lk-graph" bindtap="onGoGraph" hover-class="hover-dim">看图谱 ›</view>
@@ -166,7 +168,7 @@
         </picker>
       </view>
 
-      <view class="btn-ghost" hover-class="hover-dim" bindtap="onEdit">编辑这张卡片</view>
+      <view class="btn-ghost" id="dedit" hover-class="hover-dim" bindtap="onEdit">编辑这张卡片</view>
       <view class="btn-ghost danger" hover-class="hover-dim" bindtap="onDelete">删除这张卡片</view>
     </block>
 
@@ -189,5 +191,9 @@
   </block>
 
   <view class="empty" wx:else>卡片不存在</view>
+
+
+  <coach id="coach" flow="{{tourFlow}}" active="{{tourActive}}"
+         bind:close="onTourClose" bind:lock="onTourLock" />
 
 </view>

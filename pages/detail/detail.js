@@ -17,10 +17,42 @@ Page({
     showWhy: false, why: null, whyTip: '',
     ability: null,
     outLinks: [], backLinks: [], mentions: [], linkGap: 0,
+    // 首次进详情页的引导
+    tourActive: false, tourFlow: 'detail', pageStyle: '',
     outMore: 0, backMore: 0, mentionMore: 0,
   },
 
   onLoad(options) { this.noteId = options.id; },
+
+  /** 第一次打开某张卡时放一遍引导（每台设备只放一次） */
+  maybeTour() {
+    if (wx.getStorageSync('sc_tour_done_detail')) return;
+    wx.setStorageSync('sc_tour_done_detail', 1);
+    this.setData({ tourActive: true });
+  },
+
+  notifyCoach(action) {
+    const c = this.selectComponent('#coach');
+    if (c) c.notify(action);
+  },
+
+  onTourLock(e) { this.setData({ pageStyle: e.detail.locked ? 'overflow: hidden;' : '' }); },
+
+  onPageScroll() {
+    if (!this.data.tourActive) return;
+    const c = this.selectComponent('#coach');
+    if (c) c.relocate();
+  },
+
+  onTourClose() {
+    wx.setStorageSync('sc_tour_done_detail', 1);
+    this.setData({ tourActive: false, pageStyle: '' });
+  },
+
+  onRestartTour() {
+    this.setData({ tourActive: false });
+    setTimeout(() => this.setData({ tourActive: true, tourFlow: 'detail' }), 30);
+  },
 
   onShow() {
     const note = store.getNote(this.noteId);
@@ -57,6 +89,7 @@ Page({
       ability: note ? quizcheck.diagnose(note.title, note.content, store.listNotes().length) : null,
       ...this.computeLinks(note),
     });
+    this.maybeTour();
   },
 
   /** 计算这张卡的关联：出链 / 反向链接 / 未链接提及 */

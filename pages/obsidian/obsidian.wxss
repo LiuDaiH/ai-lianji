@@ -331,3 +331,5 @@ page {
 .orphan { margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx dashed #E3D5B8; }
 .orphan-t { font-size: 23rpx; color: #B7791F; line-height: 1.6; }
 .orphan-btn { margin-top: 14rpx; }
+
+.done-sub { font-size: 23rpx; color: #5A6072; margin-top: 8rpx; line-height: 1.6; }

@@ -206,6 +206,7 @@
 
     <view class="card done" wx:if="{{result}}">
       <view class="done-t">✅ {{result}}</view>
+      <view class="done-sub" wx:if="{{result2}}">{{result2}}</view>
       <view class="orphan" wx:if="{{orphan}}">
         <view class="orphan-t">有 {{orphan}} 张卡对应的笔记段落已经没了（删掉或改了标题）</view>
         <view hover-class="hover-dim" class="btn-ghost orphan-btn" bindtap="onCleanOrphans">
@@ -263,6 +264,16 @@
       </view>
       <view hover-class="hover-dim" class="btn-primary mt" bindtap="onExportTodo">
         📝 生成待复习清单 .md
+      </view>
+      <view class="todo-flow mt-s">
+        <view class="tf-i">📅 导日历</view>
+        <view class="tf-a">→</view>
+        <view class="tf-i">加到手机日历</view>
+        <view class="tf-a">→</view>
+        <view class="tf-i">到点系统提醒</view>
+      </view>
+      <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onExportIcs">
+        📅 导出日历提醒 .ics（零后端，系统替你提醒）
       </view>
     </view>
 

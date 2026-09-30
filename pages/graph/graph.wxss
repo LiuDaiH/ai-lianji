@@ -31,6 +31,7 @@ page { height: 100%; overflow: hidden; }
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
 .tool.on { background: #3B6FF5; color: #FFF; font-weight: 600; }
+.tool.warn { background: #FFF4E5; color: #B7791F; font-weight: 600; }
 
 .cv-wrap {
   position: relative; flex: 1; min-height: 0;
@@ -134,3 +135,10 @@ page { height: 100%; overflow: hidden; }
 
 .sh-none { text-align: center; color: #A8AEBC; font-size: 24rpx; padding: 34rpx 0; }
 .sh-more { text-align: center; color: #A8AEBC; font-size: 21rpx; padding: 16rpx 0 6rpx; }
+
+/* ---------- 抽屉里的搜索框 ---------- */
+.sh-search {
+  margin-bottom: 14rpx; padding: 16rpx 22rpx; background: #F5F7FB; border-radius: 16rpx;
+  font-size: 25rpx; color: #1F2430;
+}
+.sh-ph { color: #A8AEBC; }

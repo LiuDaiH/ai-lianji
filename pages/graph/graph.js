@@ -22,7 +22,8 @@ const DRAG_THRESHOLD = 6;
 const DBL_MS = 320;                // 双击判定窗口
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 2.8;
-const SHEET_CAP = 120;             // 抽屉一次最多列多少条
+const SHEET_CAP = 120;             // 类别抽屉一次最多列多少条
+const CARD_LIST_MAX = 80;          // 卡片清单一次渲染多少条（有搜索，不必全渲染）
 const ROW_H = 52;                  // 抽屉里一行的估算高度（px，用来算列表高度）
 const SHEET_LIST_MAX = 198;        // ⚠️ 抽屉别盖满画布 —— 上限压到 ~200px，上面始终留得下图
 const POP_MS = 260;                // 点击回弹时长
@@ -45,6 +46,8 @@ Page({
     zoomPct: 100,
     labelText: '类别+卡片',
     focus: null,                   // { id, title } 当前聚焦的类别
+    canUndo: false,                // 刚重排过 → 显示「撤销」
+    cardSearch: '',
     // 首次进页的引导
     tourActive: false, tourFlow: 'graph', pageStyle: '',
     sheet: { show: false, kind: '', rawId: '', nodeId: '', title: '', sub: '', items: [], total: 0, more: 0, focusOn: false, listH: 120 },
@@ -129,6 +132,11 @@ Page({
           } catch (e) { dpr = 2; }
           // canvas 在页面里的位置 —— 触摸事件万一不给 x/y，靠它换算
           this._rect = { left: res[0].left || 0, top: res[0].top || 0 };
+          // 深色模式：canvas 是自己画的，得按主题换一套颜色
+          try {
+            const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+            this.dark = (info.theme === 'dark');
+          } catch (e) { this.dark = false; }
           this.canvas = cv;
           this.ctx = cv.getContext('2d');
           this.W = res[0].width || LW;
@@ -245,7 +253,8 @@ Page({
     this.play();          // 入场动画：节点依次弹出
   },
 
-  lod() { return graphLib.lodOf(this.view.scale); },
+  /** 当前该用哪一档（密度判据用的是"上一次绘制时屏上有几个节点"，零额外开销） */
+  lod() { return graphLib.lodOf(this.view.scale, this._visible, this.W * this.H); },
 
   labelTextOf() { return graphLib.lodText(this.lod()); },
 
@@ -256,14 +265,48 @@ Page({
       const c = wx.getStorageSync(KEY_LAYOUT);
       if (!c || c.sig !== this._sig || !c.pos) return false;
       this.center = c.center || null;
+      this._manual = c.manual || {};
       let hit = 0;
       this.nodes.forEach((n) => {
         const p = c.pos[n.id];
         if (!p) return;
         n.x = p[0]; n.y = p[1]; hit += 1;
       });
+      // ⚠️ 手动拖过的位置优先级最高 —— 否则你摆好的版下次进页面就复原了
+      this.applyManual();
       return hit === this.nodes.length;
     } catch (e) { return false; }
+  },
+
+  /** 把手动位置盖到节点上 */
+  applyManual() {
+    const m = this._manual || {};
+    this.nodes.forEach((n) => {
+      const p = m[n.id];
+      if (p) { n.x = p[0]; n.y = p[1]; }
+    });
+  },
+
+  /** 记一个手动位置（拖动结束时调用，不是每帧） */
+  saveManual(id, x, y) {
+    if (!this._manual) this._manual = {};
+    this._manual[id] = [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+    try {
+      const c = wx.getStorageSync(KEY_LAYOUT) || {};
+      c.sig = this._sig;
+      c.manual = this._manual;
+      wx.setStorageSync(KEY_LAYOUT, c);
+    } catch (e) { /* 存不下就算了 */ }
+  },
+
+  /** 重排后手摆的位置作废 */
+  clearManual() {
+    this._manual = {};
+    try {
+      const c = wx.getStorageSync(KEY_LAYOUT) || {};
+      c.manual = {};
+      wx.setStorageSync(KEY_LAYOUT, c);
+    } catch (e) { /* ignore */ }
   },
 
   saveLayout() {
@@ -280,10 +323,33 @@ Page({
 
   onRelayout() {
     wx.showLoading({ title: '重新排布中' });
+    // 重排前留一份快照 —— 手摆的位置是劳动成果，不能一按就没
+    this._undo = {
+      pos: this.nodes.map((n) => ({ id: n.id, x: n.x, y: n.y })),
+      view: { scale: this.view.scale, tx: this.view.tx, ty: this.view.ty },
+    };
     setTimeout(() => {
       this.build(undefined, true);      // force：不吃缓存，重算一遍
+      this.clearManual();               // 新布局 = 手摆的位置作废
       wx.hideLoading();
+      this.setData({ canUndo: true });
+      if (this._undoTimer) clearTimeout(this._undoTimer);
+      this._undoTimer = setTimeout(() => this.setData({ canUndo: false }), 8000);
     }, 30);
+  },
+
+  /** 撤销这次重排 */
+  onUndoLayout() {
+    const u = this._undo;
+    if (!u) return;
+    const byId = {};
+    this.nodes.forEach((n) => { byId[n.id] = n; });
+    u.pos.forEach((p) => { const n = byId[p.id]; if (n) { n.x = p.x; n.y = p.y; } });
+    this.viewTarget = u.view;
+    this._undo = null;
+    this.setData({ canUndo: false });
+    this.play();
+    wx.showToast({ title: '已还原到重排前', icon: 'none' });
   },
 
   onFit() {
@@ -354,28 +420,51 @@ Page({
     this.showCatPick();
   },
 
-  /** 「☰ 清单」：列出全部卡片，点一条就在图上把它居中选中 */
+  /**
+   * 「☰ 找卡片」：列出全部卡片，**带搜索**（卡多的时候，翻列表本身也是折磨），
+   * 点一条就在图上把它居中选中
+   */
   onCardList() {
     const notes = store.listNotes();
     const names = {};
     cat.list().forEach((c) => { names[c.id] = c.name; });
     const list = notes.filter((n) => n && n.title)
       .slice().sort((a, b) => (a.reviewCount || 0) - (b.reviewCount || 0));
-    const items = list.slice(0, SHEET_CAP).map((n) => ({
-      id: n.id, title: n.title, level: link.masteryLevel(n),
-      meta: (LEVEL_TEXT[link.masteryLevel(n)] || '') + ' · 练过 ' + (n.reviewCount || 0) + ' 次'
-            + (names[n.categoryId] ? ' · ' + names[n.categoryId] : ''),
-    }));
+    this._cardAll = list.map((n) => {
+      const lv = link.masteryLevel(n);
+      return {
+        id: n.id, title: n.title, level: lv,
+        meta: (LEVEL_TEXT[lv] || '') + ' · 练过 ' + (n.reviewCount || 0) + ' 次'
+              + (names[n.categoryId] ? ' · ' + names[n.categoryId] : ''),
+      };
+    });
+    this.showCardsPage('');
+  },
+
+  /** 渲染卡片清单（带关键词过滤） */
+  showCardsPage(kw) {
+    const all = this._cardAll || [];
+    const q = String(kw || '').trim().toLowerCase();
+    const hit = q
+      ? all.filter((x) => (x.title + ' ' + (x.meta || '')).toLowerCase().indexOf(q) >= 0)
+      : all;
+    const items = hit.slice(0, CARD_LIST_MAX);
     this.setData({
+      cardSearch: kw,
       sheet: {
         show: true, kind: 'cards', rawId: '', nodeId: '',
-        title: '全部卡片', sub: '最薄的排前面 · 点一条就在图上定位它',
-        total: list.length, items, more: Math.max(0, list.length - items.length),
+        title: '找卡片',
+        sub: q
+          ? '匹配 ' + hit.length + ' / ' + all.length + ' 张'
+          : all.length + ' 张 · 最薄的排前面 · 点一条在图上定位',
+        total: hit.length, items, more: Math.max(0, hit.length - items.length),
         focusOn: false,
         listH: Math.min(SHEET_LIST_MAX, Math.max(96, Math.max(1, items.length) * ROW_H)),
       },
     });
   },
+
+  onSheetSearch(e) { this.showCardsPage(e.detail.value); },
 
   /** 类别列表（给「◎ 聚焦」用） */
   showCatPick() {
@@ -529,12 +618,16 @@ Page({
     const ctx = this.ctx;
     if (!ctx) return;
     const W = this.W, H = this.H;
+    const DK = this.dark;
+    const BG = DK ? '#141821' : '#FBFCFE';
+    const HALO = DK ? 'rgba(20,24,33,.92)' : 'rgba(251,252,254,.92)';
+    const LBL = DK ? 'rgba(214,222,236,.94)' : 'rgba(70,78,96,.92)';
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#FBFCFE';
+    ctx.fillStyle = BG;
     ctx.fillRect(0, 0, W, H);
 
     if (!this.nodes.length) {
-      ctx.fillStyle = '#A8AEBC';
+      ctx.fillStyle = DK ? '#6E7789' : '#A8AEBC';
       ctx.font = '13px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('还没有可展示的卡片', W / 2, H / 2);
@@ -547,9 +640,17 @@ Page({
 
     const idx = this._idx;
     const selId = this.selId;
-    const lod = this.lod();                       // 语义缩放档位：0 类别层 1 卡片点 2 短标题 3 精读
     const visOf = (n) => (typeof n._a === 'number' ? n._a : 1) * (typeof n._g === 'number' ? n._g : 1);
     const cull = (x, y) => graphLib.inView(x, y, this.view, W, H, 30);
+
+    // 先数「屏上有几个节点」→ 按密度定档（大图适配后自动进"圈层"，而不是一团毛球）
+    let vis = 0;
+    for (let i = 0; i < this.nodes.length; i += 1) {
+      const n = this.nodes[i];
+      if (cull(n.x, n.y)) vis += 1;
+    }
+    this._visible = vis;
+    const lod = this.lod();                       // 语义缩放档位：0 类别层 1 卡片点 2 短标题 3 精读
 
     // LOD 0：卡片多的大类别已经被收进「圈」里，个体不再画
     const blobOf = {};
@@ -561,8 +662,11 @@ Page({
     // 所以「谁继承谁」是**看出来的**，不用去追虚线。
     const ctr = this.center;
     if (ctr) {
-      const TINT = ['rgba(59,111,245,.055)', 'rgba(52,168,83,.055)', 'rgba(240,133,31,.055)',
-                    'rgba(124,91,217,.055)', 'rgba(31,151,171,.055)'];
+      const TINT = DK
+        ? ['rgba(108,143,247,.10)', 'rgba(79,209,165,.10)', 'rgba(251,191,36,.10)',
+           'rgba(160,130,240,.10)', 'rgba(80,190,200,.10)']
+        : ['rgba(59,111,245,.055)', 'rgba(52,168,83,.055)', 'rgba(240,133,31,.055)',
+           'rgba(124,91,217,.055)', 'rgba(31,151,171,.055)'];
       let ti = 0;
       this.nodes.forEach((n) => {
         if (n.type !== 'cat' || !n.sec) return;
@@ -572,7 +676,7 @@ Page({
         ctx.moveTo(ctr.x, ctr.y);
         ctx.arc(ctr.x, ctr.y, (n.ring || 0) + 26, n.sec.start, n.sec.end);
         ctx.closePath();
-        ctx.fillStyle = hot ? 'rgba(59,111,245,.12)' : TINT[ti % TINT.length];
+        ctx.fillStyle = hot ? (DK ? 'rgba(108,143,247,.20)' : 'rgba(59,111,245,.12)') : TINT[ti % TINT.length];
         ctx.fill();
         ti += 1;
       });
@@ -647,10 +751,10 @@ Page({
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       if (n.type === 'cat') {
-        ctx.fillStyle = '#2B3A55';
+        ctx.fillStyle = DK ? '#8FA6D8' : '#2B3A55';
         ctx.fill();
         ctx.lineWidth = 2.5;
-        ctx.strokeStyle = 'rgba(43,58,85,.22)';
+        ctx.strokeStyle = DK ? 'rgba(143,166,216,.35)' : 'rgba(43,58,85,.22)';
         ctx.stroke();
       } else {
         ctx.fillStyle = graphLib.LEVEL_COLOR[n.level] || '#C2CAD8';
@@ -680,12 +784,12 @@ Page({
         ctx.setLineDash([]);
 
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#2B3A55';
+        ctx.fillStyle = DK ? '#C6D2EA' : '#2B3A55';
         ctx.font = 'bold 12px sans-serif';
         ctx.fillText(String(b.count), b.x, b.y + 1);
         ctx.font = 'bold 11px sans-serif';
         ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(251,252,254,.92)';
+        ctx.strokeStyle = HALO;
         const lb = String(b.label || '').slice(0, 8);
         ctx.strokeText(lb, b.x, b.y + b.r + 13);
         ctx.fillText(lb, b.x, b.y + b.r + 13);
@@ -701,7 +805,7 @@ Page({
       ctx.beginPath();
       ctx.arc(p2.x, p2.y, r0 + k * 20, 0, Math.PI * 2);
       ctx.lineWidth = 2.4;
-      ctx.strokeStyle = p2.type === 'cat' ? '#2B3A55' : '#F0851F';
+      ctx.strokeStyle = p2.type === 'cat' ? (DK ? '#9FB4DE' : '#2B3A55') : '#F0851F';
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
@@ -722,9 +826,9 @@ Page({
       if (!txt) return;
 
       ctx.font = n.type === 'cat' ? 'bold 11px sans-serif' : '9px sans-serif';
-      ctx.fillStyle = n.type === 'cat' ? '#2B3A55' : 'rgba(70,78,96,.92)';
+      ctx.fillStyle = n.type === 'cat' ? (DK ? '#B9C7E6' : '#2B3A55') : LBL;
       ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(251,252,254,.92)';
+      ctx.strokeStyle = HALO;
       ctx.globalAlpha = a;
       const ty = n.y + r + (n.type === 'cat' ? 13 : 10);
       ctx.strokeText(txt, n.x, ty);
@@ -877,7 +981,12 @@ Page({
     const zp = Math.round(this.view.scale * 100);
     if (zp !== this.data.zoomPct) this.setData({ zoomPct: zp, labelText: this.labelTextOf() });
 
-    if (moved) { this.draw(); return; }
+    if (moved) {
+      // 拖动结束才存（每帧都写 storage 会卡）
+      if (node) this.saveManual(node.id, node.x, node.y);
+      this.draw();
+      return;
+    }
 
     if (node) {
       this.tapNode(node);
@@ -957,6 +1066,7 @@ Page({
 
   closeSheet() {
     this.selId = null;
+    this._cardAll = null;
     if (this.data.sheet.show) this.setData({ sheet: { show: false, kind: '', rawId: '', nodeId: '', title: '', sub: '', items: [], total: 0, more: 0, focusOn: false, listH: 120 } });
     this.draw();
   },

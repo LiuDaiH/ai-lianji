@@ -6,7 +6,9 @@ const treeUtil = require('../../utils/tree.js');
 
 const TMP_DIR = 'obsidian_import';
 const MAX_PREVIEW_ROWS = 120;
-const MAX_SOURCE_BYTES = 2 * 1024 * 1024;   // 存档上限 2MB，别撑爆本地存储
+// 存档上限：改成 8MB —— 原文现在**分片存储**（store 里按 380KB 切片），
+// 不再受"单键 1MB"限制；总容量仍是 10MB，留 2MB 给卡片数据
+const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 
 /** 嵌套树 → 预览用的缩进行 */
 function previewRows(nodes, depth, out, limit) {
@@ -30,7 +32,7 @@ Page({
     preview: null,
     rows: [],
     opt: { folder: true, head: true },
-    result: '',
+    result: '', result2: '',
     sources: [],
     sourceStats: { files: 0, kb: 0 },
     syncStats: { files: 0, linked: 0, nodes: 0, total: 0 },
@@ -367,24 +369,45 @@ Page({
     let bytes = 0;
     raw.collected.forEach((f) => { bytes += (f.text || '').length; });
     const keep = raw.collected.map((f) => ({ relPath: f.relPath, text: f.text, importedAt: Date.now() }));
-    if (bytes <= MAX_SOURCE_BYTES) store.upsertObsidianSources(keep);
+    let archived = false;
+    if (bytes <= MAX_SOURCE_BYTES) {
+      store.upsertObsidianSources(keep);
+      archived = store.readObsidianSources().length > 0;      // 读回来确认真的存上了
+    }
 
     const renamed = m.updates.filter((x) => x.renamed).length;
+    // ③ 把"更新了哪几张"写出来 —— 只说数字，用户没法确认自己改的那条进来没有
+    const upTitles = m.updates.slice(0, 5).map((x) => {
+      const t = (store.getNote(x.id) || {}).title || '';
+      return t + (x.renamed ? '（改名）' : '');
+    }).filter(Boolean);
+    const detail = upTitles.length
+      ? '更新了：' + upTitles.join('、') + (m.updates.length > 5 ? ' 等 ' + m.updates.length + ' 张' : '')
+      : '';
     // ⚠️ 用了标签筛选就别报孤儿：没被导进来的卡不是"被删了"，只是你没选
     const orphans = tagOn ? [] : m.orphans;
     this._orphans = orphans;
 
     this._raw = null;
     this.refreshSources();
+    if (!archived && bytes <= MAX_SOURCE_BYTES) {
+      // 存不上就是"回写整个失效"，必须吵出来，不能只在结果里飘一行小字
+      wx.showModal({
+        title: '原文没能存下来',
+        content: '本地空间不够，回写功能会不可用（卡片和类别不受影响）。可以在「统计」里清理或导出备份后重试。',
+        showCancel: false,
+      });
+    }
     this.setData({
       preview: null, rows: [], stage: 'idle', tagOpts: [], tagSel: {}, tagOn: 0,
       orphan: orphans.length,
+      result2: detail,
       result: '更新 ' + m.updates.length + ' 张'
         + (renamed ? '（其中改名 ' + renamed + ' 张）' : '')
         + ' · 新增 ' + m.adds.length + ' 张'
         + ' · 未变 ' + m.keeps.length + ' 张'
         + (tagOn ? '（已按标签筛选）' : '')
-        + (bytes > MAX_SOURCE_BYTES ? '（原文超 2MB，未存档，回写请用汇总报告）' : ''),
+        + (archived || bytes === 0 ? '' : '　⚠️ 原文未存档，回写用不了'),
     });
     wx.showToast({ title: '导入完成', icon: 'success' });
   },
@@ -614,6 +637,27 @@ Page({
     const text = fs.dueList(notes, { days: 7 });
     const name = 'study-todo-' + new Date().toISOString().slice(0, 10) + '.md';
     this.shareOne(name, text, '清单已发出 · ' + linked + ' 张卡有出处');
+  },
+
+  /**
+   * 复习提醒：导出一份 .ics，导进手机日历后由**系统**到点提醒
+   *
+   * 为什么不用小程序订阅消息：那需要服务端按模板发，而这个是零后端设计。
+   * 日历是唯一"没服务器也会响"的路子。
+   */
+  onExportIcs() {
+    const notes = store.listNotes();
+    const soon = notes.filter((n) => n && n.title && n.dueAt && n.dueAt <= Date.now() + 7 * 86400000);
+    if (!soon.length) {
+      wx.showModal({
+        title: '最近 7 天没有到期的卡片',
+        content: '先去练几轮，有了复习计划再导出日历提醒。',
+        showCancel: false,
+      });
+      return;
+    }
+    const text = fs.icsFor(notes, { days: 7 });
+    this.shareOne('study-reminder.ics', text, '日历提醒已发出');
   },
 
   /** 看知识图谱（Obsidian 笔记之间的 [[]] 连成了什么形状） */

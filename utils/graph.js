@@ -371,13 +371,19 @@ function fitView(nodes, W, H, opts) {
  *
  * 这是"撑住几千张卡"的关键：靠缩放切换粒度，而不是硬砍节点。
  */
-function lodOf(scale, nodeCount) {
-  void nodeCount;
+function lodOf(scale, visibleCount, area) {
   const s = typeof scale === 'number' ? scale : 1;
-  if (s < 0.55) return 0;
-  if (s < 1.05) return 1;
-  if (s < 1.75) return 2;
-  return 3;
+  // ⚠️ 光看缩放是不够的：布局会把坐标归一化到画布，所以"适配"后 scale 恒在 1 附近 ——
+  //    400 张卡适配后 scale≈0.975，只看缩放就永远停在 LOD 1，屏上一团毛球，
+  //    我做的聚合圈反而一次都出不来（实测踩过）。所以必须**同时看密度**。
+  const a = typeof area === 'number' && area > 0 ? area : 375 * 420;
+  const dens = (typeof visibleCount === 'number' ? visibleCount : 0) / (a / 10000);  // 每万像素几个点
+
+  if (dens > 12) return 0;               // 挤到看不清（≈190 个点起）→ 收成带数字的圈，先给全貌
+  if (dens > 7) return 1;                // 只画点，不写字
+  if (s < 0.8) return 1;                 // 缩太小：写了也看不清
+  if (s < 1.15) return dens > 5 ? 2 : 3; // 稀疏的图直接给精读，密的先给短标题
+  return 3;                              // 放大后精读：长标题 + 掌握度
 }
 
 const LOD_TEXT = ['类别层', '卡片点', '短标题', '精读'];

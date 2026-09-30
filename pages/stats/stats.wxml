@@ -117,6 +117,7 @@
   <view class="card" id="backup-card">
     <view class="sec">数据备份</view>
     <view class="subtle">数据存在本机。换手机或重装前，先导出一份（含类别）</view>
+    <view class="subtle">导入是**追加**：内容相同的卡片自动跳过，不会覆盖你现在的数据。</view>
     <view hover-class="hover-dim" class="btn-primary mt" bindtap="onExport">导出备份文件</view>
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onImport">从聊天文件导入</view>
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onImportClipboard">从剪贴板导入</view>
