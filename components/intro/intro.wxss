@@ -19,12 +19,23 @@
   transition: opacity .6s ease;
 }
 .intro-bg.on { opacity: 1; }
-.intro-bg.bg0 { background: linear-gradient(160deg, #1F3FB8 0%, #3B6FF5 60%, #6C8FF7 100%); }
+.intro-bg.bg0 {
+  background:
+    radial-gradient(120% 80% at 84% 6%, rgba(255,196,110,.34) 0%, rgba(255,196,110,0) 56%),
+    radial-gradient(90% 70% at 8% 96%, rgba(96,226,196,.25) 0%, rgba(96,226,196,0) 60%),
+    linear-gradient(158deg, #0D1734 0%, #16307A 46%, #2C4FD8 100%);
+}
 .intro-bg.bg1 { background: linear-gradient(160deg, #1A1146 0%, #4A32C8 52%, #7C5BD9 100%); }
 .intro-bg.bg2 { background: linear-gradient(160deg, #4A2E9E 0%, #7C5BD9 60%, #A18BF0 100%); }
 .intro-bg.bg3 { background: linear-gradient(160deg, #1D5E7A 0%, #2E8FB8 60%, #6BC3E0 100%); }
 .intro-bg.bg4 { background: linear-gradient(160deg, #0F5C43 0%, #22B573 60%, #6BD8A8 100%); }
 .intro-bg.bg5 { background: linear-gradient(160deg, #2B1E63 0%, #5B4BD9 55%, #7C9BFF 100%); }
+.intro-bg::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  background-image:
+    repeating-linear-gradient(58deg, rgba(255,255,255,.055) 0 1rpx, rgba(255,255,255,0) 1rpx 26rpx);
+  pointer-events: none;
+}
 .intro-bg.bg-glow {
   background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 60%);
   opacity: 1;
@@ -70,6 +81,8 @@ swiper-item { display: flex; flex-direction: column; align-items: center; }
 .s-tag { display: inline-block; background: rgba(255,255,255,.2); color: #FFF;
   font-size: 21rpx; padding: 4rpx 18rpx; border-radius: 18rpx; margin-bottom: 16rpx; }
 .s-title { font-size: 40rpx; font-weight: 700; color: #FFF; line-height: 1.35; }
+.s-text.first .s-title { font-size: 48rpx; letter-spacing: .5rpx; }
+.s-text.first .s-desc { font-size: 27rpx; color: rgba(255,255,255,.9); }
 .s-desc { font-size: 26rpx; color: rgba(255,255,255,.86); line-height: 1.72; margin-top: 14rpx; }
 
 /* 场景 1 */
@@ -310,3 +323,39 @@ swiper-item { display: flex; flex-direction: column; align-items: center; }
 
 /* 非 AI 版圆圈里是「自动」两个字，字号调小、去掉字间距 */
 .aif-core.two { font-size: 26rpx; letter-spacing: 0; font-weight: 700; }
+
+/* 首屏演示卡：一屏说明「它会考你」 */
+.mq {
+  width: 460rpx; padding: 30rpx 30rpx 26rpx; border-radius: 26rpx;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 18rpx 44rpx rgba(6,12,34,.34);
+  animation: mqIn .6s cubic-bezier(.2,.9,.3,1.2) both;
+}
+@keyframes mqIn { from { opacity: 0; transform: translateY(26rpx) scale(.96); } to { opacity: 1; } }
+.mq-head { display: flex; align-items: center; justify-content: space-between; }
+.mq-kind {
+  font-size: 20rpx; color: #0E5C46; background: #DFF5EC;
+  padding: 4rpx 14rpx; border-radius: 999rpx;
+}
+.mq-prog { font-size: 20rpx; color: #98A0AE; }
+.mq-q {
+  margin: 20rpx 0 24rpx; font-size: 31rpx; line-height: 1.62; color: #1B2130;
+  display: flex; align-items: baseline; flex-wrap: wrap;
+}
+.mq-blank {
+  display: inline-block; width: 132rpx; height: 30rpx; margin: 0 10rpx;
+  border-bottom: 4rpx solid #E8A33D; background: rgba(232,163,61,.16);
+  border-radius: 4rpx; animation: mqBlink 1.6s ease-in-out infinite;
+}
+@keyframes mqBlink { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.mq-row { display: flex; gap: 16rpx; }
+.mq-btn {
+  flex: 1; text-align: center; font-size: 25rpx; line-height: 72rpx;
+  border-radius: 999rpx;
+}
+.mq-btn.ghost { background: #F2F5FB; color: #5A6072; }
+.mq-btn.main {
+  background: linear-gradient(135deg, #3B6FF5, #6C8FF7); color: #FFF; font-weight: 600;
+  box-shadow: 0 8rpx 20rpx rgba(59,111,245,.3);
+}
+.mq-foot { margin-top: 18rpx; font-size: 21rpx; color: #8A90A0; text-align: center; }

@@ -753,6 +753,16 @@ function icsFor(notes, opts) {
   return lines.join(CRLF) + CRLF;
 }
 
+/* ==================== ⑦.6 导出指纹 ==================== */
+
+/** 标注后文本的指纹：够判断"和上次一样吗"，不需要 crypto */
+function textStamp(text) {
+  const s = String(text || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i += 7) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return s.length + ':' + h;
+}
+
 /* ==================== ⑧ 汇总报告 ==================== */
 
 function tree2lines(nodes, depth, rows) {
@@ -890,5 +900,5 @@ module.exports = {
   splitFrontmatter, scan, buildTree, cardsOfNode, walkCards,
   parseMarkdown, parseVault,
   masteryOf, aggregate, annotate, applyFront, frontFields, report, paths2tree,
-  stripMarks, tierTag, isoDate, obsidianLink, dueList, icsFor,
+  stripMarks, tierTag, isoDate, obsidianLink, dueList, icsFor, textStamp,
 };

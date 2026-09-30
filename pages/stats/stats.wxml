@@ -123,10 +123,10 @@
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onImportClipboard">从剪贴板导入</view>
   </view>
 
-  <!-- 引导入口已独立到「关于这个工具」页；这里只放一个跳转 -->
+  <!-- 设置入口：**介绍弹窗的模式**、AI / 震动开关、操作引导都在这一页 -->
   <view class="card">
-    <view class="sec">使用帮助</view>
-    <view class="subtle">产品介绍、操作引导、数据备份都在这里</view>
+    <view class="sec">设置与关于</view>
+    <view class="subtle">介绍弹窗显示模式（每次 / 仅首次 / 不再显示）、AI 开关、震动开关、操作引导 —— 都在这页</view>
     <view hover-class="hover-dim" class="btn-ghost mt" bindtap="goHelp">打开「关于这个工具」</view>
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onRestartTour">再看一遍本页引导</view>
   </view>

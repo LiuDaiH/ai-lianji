@@ -505,9 +505,37 @@ Page({
   },
 
   doExport() {
-    this._queue = store.readObsidianSources().slice();
+    const all = store.readObsidianSources().slice();
+    const marks = this._markMap || this.buildMarkMap();
+    const agg = this._fileAgg || this.buildFileAgg();
+    const last = store.readExportedStamps();     // 上次导出时每个文件的内容指纹
+
+    // ⚠️ 只导出**标注结果真的变了**的文件。
+    //    分享面板一次只能发一个文件（10 个文件就要点 10 次），
+    //    而练了两三张卡通常只影响 1~2 个文件 —— 跳过没变化的最实在。
+    this._stamps = {};
+    this._skippedUnchanged = 0;
+    const queue = [];
+    all.forEach((src) => {
+      const r = fs.annotate(src.text, marks[src.relPath] || {}, { front: agg[src.relPath] || null });
+      const stamp = fs.textStamp(r.text);
+      this._stamps[src.relPath] = stamp;
+      if (last[src.relPath] === stamp) { this._skippedUnchanged += 1; return; }
+      queue.push(src);
+    });
+
+    this._queue = queue;
     this._done = 0;
     this._missing = [];          // ③ 累计「笔记里找不到的标题」
+
+    if (this._queue.length) {
+      const extra = this._skippedUnchanged
+        ? '（另有 ' + this._skippedUnchanged + ' 个文件没变化，跳过不弹）' : '';
+      wx.showToast({
+        title: '要弹 ' + this._queue.length + ' 次分享面板' + extra,
+        icon: 'none', duration: 2800,
+      });
+    }
     this._total = this._queue.length;
     wx.showModal({
       title: '逐个导出（共 ' + this._total + ' 个文件）',
@@ -519,6 +547,14 @@ Page({
 
   exportNext() {
     if (!this._queue || !this._queue.length) {
+      if (this._skippedUnchanged && !this._done) {
+        wx.showModal({
+          title: '没有需要回写的文件',
+          content: '这次要写回的内容和上次完全一样（' + this._skippedUnchanged + ' 个文件都没变），不用重复导出。',
+          showCancel: false,
+        });
+        return;
+      }
       this.finishExport();
       return;
     }
@@ -568,10 +604,13 @@ Page({
 
   /** ③ 导出收尾：如果有些标题在笔记里对不上，明说出来 */
   finishExport() {
+    if (this._stamps) store.saveExportedStamps(this._stamps);   // 记指纹，下次只导变了的
+    const skip = this._skippedUnchanged || 0;
+    const skipTxt = skip ? '（另有 ' + skip + ' 个文件没变化，已跳过）' : '';
     const miss = this._missing || [];
     if (!miss.length) {
-      wx.showToast({ title: '全部导出完成', icon: 'success' });
-      this.setData({ result: '全部导出完成 · 所有标题都标注上了' });
+      wx.showToast({ title: '导出完成', icon: 'success' });
+      this.setData({ result: '导出完成 · 所有标题都标注上了 ' + skipTxt });
       return;
     }
     const head = miss.slice(0, 5).join(String.fromCharCode(10));
@@ -584,7 +623,7 @@ Page({
       confirmText: '知道了',
       success: () => this.setData({
         result: '导出完成 · 但有 ' + miss.length + ' 个标题在笔记里找不到（改过标题名？）：「'
-          + miss.slice(0, 3).join('」「') + '」' + (miss.length > 3 ? ' 等' : ''),
+          + miss.slice(0, 3).join('」「') + '」' + (miss.length > 3 ? ' 等' : '') + skipTxt,
       }),
     });
   },

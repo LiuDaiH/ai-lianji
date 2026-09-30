@@ -7,7 +7,7 @@
     <view class="h-row">
       <view class="h-title">知识图谱</view>
       <view class="h-ops">
-        <view class="h-help" bindtap="onCardList" hover-class="hover-dim">☰ 找卡片</view>
+        <view class="h-help" bindtap="onOpenSearch" hover-class="hover-dim">🔍 搜索</view>
         <view class="h-help" bindtap="onRestartTour" hover-class="hover-dim">? 怎么用</view>
       </view>
     </view>
@@ -81,10 +81,6 @@
       <view class="sh-btn ghost" bindtap="closeSheet" hover-class="hover-dim">收起</view>
     </view>
 
-    <input class="sh-search" wx:if="{{sheet.kind === 'cards'}}" value="{{cardSearch}}"
-           bindinput="onSheetSearch" confirm-type="search"
-           placeholder="搜标题 / 类别，比如「过拟合」" placeholder-class="sh-ph" />
-
     <scroll-view scroll-y class="sh-list" style="height:{{sheet.listH}}px">
       <view class="sh-item" wx:for="{{sheet.items}}" wx:key="id" data-id="{{item.id}}"
             bindtap="onGoItem" hover-class="hover-dim">
@@ -99,6 +95,48 @@
         {{sheet.kind === 'catpick' ? '还没有类别' : '这里还没有卡片'}}
       </view>
       <view class="sh-more" wx:if="{{sheet.more > 0}}">⋯ 还有 {{sheet.more}} 张没列出</view>
+    </scroll-view>
+  </view>
+
+  <!-- ============ 全屏搜索：一个框，类别和卡片一起搜 ============ -->
+  <view class="sp" wx:if="{{search.show}}">
+    <view class="sp-bar">
+      <input class="sp-input" value="{{search.kw}}" bindinput="onSearchInput" focus="{{search.show}}"
+             confirm-type="search" placeholder="搜类别或卡片，比如「过拟合」「神经网络」"
+             placeholder-class="sp-ph" />
+      <view class="sp-cancel" bindtap="onCloseSearch" hover-class="hover-dim">取消</view>
+    </view>
+
+    <scroll-view scroll-y class="sp-body">
+      <block wx:if="{{search.cats.length}}">
+        <view class="sp-sec">类别 · {{search.catTotal}}</view>
+        <view class="sp-row" wx:for="{{search.cats}}" wx:key="id" data-id="{{item.id}}"
+              bindtap="onPickSearchCat" hover-class="hover-dim">
+          <view class="sp-catdot"></view>
+          <view class="sp-col">
+            <view class="sp-name">{{item.name}}</view>
+            <view class="sp-sub">{{item.path}} · {{item.count}} 张</view>
+          </view>
+          <view class="sp-act">只看这块 ›</view>
+        </view>
+        <view class="sp-more" wx:if="{{search.catMore > 0}}">…还有 {{search.catMore}} 个类别</view>
+      </block>
+
+      <block wx:if="{{search.notes.length}}">
+        <view class="sp-sec">卡片 · {{search.noteTotal}}</view>
+        <view class="sp-row" wx:for="{{search.notes}}" wx:key="id" data-id="{{item.id}}"
+              bindtap="onPickSearchNote" hover-class="hover-dim">
+          <view class="sh-dot {{item.level}}"></view>
+          <view class="sp-col">
+            <view class="sp-name">{{item.title}}</view>
+            <view class="sp-sub">{{item.meta}}</view>
+          </view>
+          <view class="sp-act">定位 ›</view>
+        </view>
+        <view class="sp-more" wx:if="{{search.noteMore > 0}}">…还有 {{search.noteMore}} 张卡片</view>
+      </block>
+
+      <view class="sp-none" wx:if="{{!search.cats.length && !search.notes.length}}">没有匹配的类别或卡片</view>
     </scroll-view>
   </view>
 

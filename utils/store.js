@@ -268,6 +268,29 @@ function saveObsidianSources(list) {
 }
 
 /** 存档占了多少（给界面显示用） */
+const KEY_STAMPS = 'sc_obs_stamps';
+
+/** 上次导出时每个文件的内容指纹（用来跳过"没变化"的文件，少弹几次分享面板） */
+function readExportedStamps() {
+  try {
+    const v = wx.getStorageSync(KEY_STAMPS);
+    return (v && typeof v === 'object') ? v : {};
+  } catch (e) { return {}; }
+}
+
+function saveExportedStamps(map) {
+  try { wx.setStorageSync(KEY_STAMPS, map || {}); return true; }
+  catch (e) { return false; }
+}
+
+/** 内容指纹：长度 + 简单滚动哈希（够判断"变没变"，不用 crypto） */
+function textStamp(text) {
+  const s = String(text || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i += 7) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return s.length + ':' + h;
+}
+
 function obsidianBytes() {
   try {
     const m = wx.getStorageSync(KEY_OBS);
@@ -318,6 +341,6 @@ module.exports = {
   addLog, readLogs, addQuizResult, readQuizResults,
   exportJSON, importJSON, stats,
   readObsidianSources, saveObsidianSources, upsertObsidianSources, clearObsidianSources,
-  obsidianBytes,
+  obsidianBytes, readExportedStamps, saveExportedStamps, textStamp,
   takeIntroPending,
 };

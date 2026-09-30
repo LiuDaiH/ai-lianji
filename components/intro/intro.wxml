@@ -21,15 +21,19 @@
     <swiper class="swiper" circular="{{false}}" duration="400" current="{{slide}}" bindchange="onSwiper">
       <swiper-item wx:for="{{slides}}" wx:key="tag">
 
-        <!-- 1 卡片堆 -->
+        <!-- 1 首屏：直接演一遍「它怎么考你」——比三张白卡更能说明这是干什么的 -->
         <view class="s-stage" wx:if="{{index === 0}}">
-          <view class="stack">
-            <view class="sc sc3"></view>
-            <view class="sc sc2"></view>
-            <view class="sc sc1">
-              <view class="sc-line w70"></view>
-              <view class="sc-line w45"></view>
+          <view class="mq">
+            <view class="mq-head">
+              <view class="mq-kind">回忆题</view>
+              <view class="mq-prog">3 / 10</view>
             </view>
+            <view class="mq-q">反向传播靠的是<view class="mq-blank"></view>法则</view>
+            <view class="mq-row">
+              <view class="mq-btn ghost">没想起来</view>
+              <view class="mq-btn main">想起来了</view>
+            </view>
+            <view class="mq-foot">答对 → 这张卡下次出现在 3 天后</view>
           </view>
         </view>
 
@@ -111,7 +115,7 @@
           </view>
         </view>
 
-        <view class="s-text {{slide === index ? 'anim' : ''}}">
+        <view class="s-text {{slide === index ? 'anim' : ''}} {{index === 0 ? 'first' : ''}}">
           <view class="s-tag {{item.hot ? 'hot' : ''}}">{{item.tag}}</view>
           <view class="s-title">{{item.title}}</view>
           <view class="s-desc">{{item.desc}}</view>

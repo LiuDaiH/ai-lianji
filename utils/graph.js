@@ -324,6 +324,8 @@ function annotateSectors(nodes, center) {
       || { start: 0, end: Math.PI * 2, mid: 0, span: Math.PI * 2, depth: 0, count: 0 };
     c.sec = { start: s2.start, end: s2.end, mid: s2.mid, span: s2.span, depth: s2.depth || 0 };
     c.ring = Math.hypot(c.x - c0.x, c.y - c0.y);
+    // 子树总张数（含子类）—— 父类圆要明显比子类大，光看半径差不够直观
+    c.subCount = (s2.count || 0) + (c.count || 0) > 0 ? Math.max(s2.count || 0, c.count || 0) : 0;
   });
   return sec;
 }
@@ -486,7 +488,11 @@ function neighborsOf(edges, nodeId) {
 
 /** 节点半径 —— 类别节点按它装了多少张卡变大（一眼看出哪里是重灾区） */
 function radiusOf(node) {
-  if (node.type === 'cat') return 9 + Math.min(7, Math.sqrt(node.count || 0) * 1.6);
+  if (node.type === 'cat') {
+    // 用**子树张数**（含子类）——父类天生比子类大，层级一眼能看出来
+    const sub = node.subCount || node.count || 0;
+    return 8 + Math.min(9, Math.sqrt(sub) * 1.5);
+  }
   if (node.level === 'mastered') return 6.5;
   if (node.level === 'learning') return 6;
   return 5.2;

@@ -47,7 +47,8 @@ Page({
     labelText: '类别+卡片',
     focus: null,                   // { id, title } 当前聚焦的类别
     canUndo: false,                // 刚重排过 → 显示「撤销」
-    cardSearch: '',
+    // 全屏搜索（类别 + 卡片一起搜）
+    search: { show: false, kw: '', cats: [], notes: [], catTotal: 0, noteTotal: 0, catMore: 0, noteMore: 0 },
     // 首次进页的引导
     tourActive: false, tourFlow: 'graph', pageStyle: '',
     sheet: { show: false, kind: '', rawId: '', nodeId: '', title: '', sub: '', items: [], total: 0, more: 0, focusOn: false, listH: 120 },
@@ -420,17 +421,29 @@ Page({
     this.showCatPick();
   },
 
-  /**
-   * 「☰ 找卡片」：列出全部卡片，**带搜索**（卡多的时候，翻列表本身也是折磨），
-   * 点一条就在图上把它居中选中
-   */
-  onCardList() {
+  /* ---------- 全屏搜索：一个框同时搜类别和卡片 ---------- */
+
+  onOpenSearch() {
+    const allCats = cat.list();
     const notes = store.listNotes();
+    const catIds = {};
+    const counts = {};
+    allCats.forEach((c) => { catIds[c.id] = true; });
+    notes.forEach((n) => {
+      const cid = (n.categoryId && catIds[n.categoryId]) ? n.categoryId : '__none__';
+      counts[cid] = (counts[cid] || 0) + 1;
+    });
+    const pathText = (c) => cat.pathText ? cat.pathText(allCats, c.id) : c.name;
+    this._searchCats = allCats.map((c) => ({
+      id: c.id, name: c.name, count: counts[c.id] || 0,
+      // 带上完整路径，搜「深度学习/过拟合」也能命中
+      path: String(pathText(c) || c.name),
+    }));
+    if (counts.__none__) this._searchCats.push({ id: '__none__', name: '未分类', count: counts.__none__, path: '未分类' });
+
     const names = {};
-    cat.list().forEach((c) => { names[c.id] = c.name; });
-    const list = notes.filter((n) => n && n.title)
-      .slice().sort((a, b) => (a.reviewCount || 0) - (b.reviewCount || 0));
-    this._cardAll = list.map((n) => {
+    allCats.forEach((c) => { names[c.id] = c.name; });
+    this._searchNotes = notes.filter((n) => n && n.title).map((n) => {
       const lv = link.masteryLevel(n);
       return {
         id: n.id, title: n.title, level: lv,
@@ -438,33 +451,51 @@ Page({
               + (names[n.categoryId] ? ' · ' + names[n.categoryId] : ''),
       };
     });
-    this.showCardsPage('');
+
+    this.setData({ 'search.show': true });
+    this.runSearch('');
   },
 
-  /** 渲染卡片清单（带关键词过滤） */
-  showCardsPage(kw) {
-    const all = this._cardAll || [];
+  onSearchInput(e) { this.runSearch(e.detail.value); },
+
+  onCloseSearch() { this.setData({ 'search.show': false }); },
+
+  /** 一个关键词，两组结果：类别 + 卡片 */
+  runSearch(kw) {
     const q = String(kw || '').trim().toLowerCase();
-    const hit = q
-      ? all.filter((x) => (x.title + ' ' + (x.meta || '')).toLowerCase().indexOf(q) >= 0)
-      : all;
-    const items = hit.slice(0, CARD_LIST_MAX);
+    const hit = (txt) => !q || String(txt || '').toLowerCase().indexOf(q) >= 0;
+
+    const catsAll = this._searchCats || [];
+    const notesAll = this._searchNotes || [];
+    const cats = catsAll.filter((c) => hit(c.name) || hit(c.path));
+    const notes = notesAll.filter((n) => hit(n.title) || hit(n.meta));
+
+    const CAP = 60;
     this.setData({
-      cardSearch: kw,
-      sheet: {
-        show: true, kind: 'cards', rawId: '', nodeId: '',
-        title: '找卡片',
-        sub: q
-          ? '匹配 ' + hit.length + ' / ' + all.length + ' 张'
-          : all.length + ' 张 · 最薄的排前面 · 点一条在图上定位',
-        total: hit.length, items, more: Math.max(0, hit.length - items.length),
-        focusOn: false,
-        listH: Math.min(SHEET_LIST_MAX, Math.max(96, Math.max(1, items.length) * ROW_H)),
-      },
+      'search.kw': kw,
+      'search.cats': cats.slice(0, CAP),
+      'search.notes': notes.slice(0, CAP),
+      'search.catTotal': cats.length,
+      'search.noteTotal': notes.length,
+      'search.catMore': Math.max(0, cats.length - CAP),
+      'search.noteMore': Math.max(0, notes.length - CAP),
     });
   },
 
-  onSheetSearch(e) { this.showCardsPage(e.detail.value); },
+  /** 搜索结果里点类别 → 聚焦；点卡片 → 图上定位 */
+  onPickSearchCat(e) {
+    const id = e.currentTarget.dataset.id;
+    this.setData({ 'search.show': false, 'sheet.show': false });
+    if (id === '__none__') { wx.showToast({ title: '「未分类」不能聚焦', icon: 'none' }); return; }
+    this.setFocus(id);
+    this.play();
+  },
+
+  onPickSearchNote(e) {
+    this.setData({ 'search.show': false });
+    this.locateNote(e.currentTarget.dataset.id);
+  },
+
 
   /** 类别列表（给「◎ 聚焦」用） */
   showCatPick() {
@@ -663,23 +694,58 @@ Page({
     const ctr = this.center;
     if (ctr) {
       const TINT = DK
-        ? ['rgba(108,143,247,.10)', 'rgba(79,209,165,.10)', 'rgba(251,191,36,.10)',
-           'rgba(160,130,240,.10)', 'rgba(80,190,200,.10)']
-        : ['rgba(59,111,245,.055)', 'rgba(52,168,83,.055)', 'rgba(240,133,31,.055)',
-           'rgba(124,91,217,.055)', 'rgba(31,151,171,.055)'];
+        ? ['rgba(108,143,247,.16)', 'rgba(79,209,165,.16)', 'rgba(251,191,36,.16)',
+           'rgba(160,130,240,.16)', 'rgba(80,190,200,.16)']
+        : ['rgba(59,111,245,.11)', 'rgba(52,168,83,.11)', 'rgba(240,133,31,.11)',
+           'rgba(124,91,217,.11)', 'rgba(31,151,171,.11)'];
       let ti = 0;
       this.nodes.forEach((n) => {
         if (n.type !== 'cat' || !n.sec) return;
         if (n.sec.depth !== 0) return;                       // 只给顶级类别画地盘
         const hot = this.data.focus && this.data.focus.id === n.rawId;
+        const R = (n.ring || 0) + 26;
         ctx.beginPath();
         ctx.moveTo(ctr.x, ctr.y);
-        ctx.arc(ctr.x, ctr.y, (n.ring || 0) + 26, n.sec.start, n.sec.end);
+        ctx.arc(ctr.x, ctr.y, R, n.sec.start, n.sec.end);
         ctx.closePath();
-        ctx.fillStyle = hot ? (DK ? 'rgba(108,143,247,.20)' : 'rgba(59,111,245,.12)') : TINT[ti % TINT.length];
+        ctx.fillStyle = hot ? (DK ? 'rgba(108,143,247,.26)' : 'rgba(59,111,245,.20)') : TINT[ti % TINT.length];
         ctx.fill();
+        // 外弧再描一道：扇形的边界靠自己"显形"，而不是只靠底色
+        ctx.beginPath();
+        ctx.arc(ctr.x, ctr.y, R, n.sec.start, n.sec.end);
+        ctx.lineWidth = hot ? 2 : 1.2;
+        ctx.strokeStyle = hot ? '#3B6FF5' : (DK ? 'rgba(140,160,200,.45)' : 'rgba(120,140,180,.40)');
+        ctx.stroke();
         ti += 1;
       });
+
+      // 同心环参考线：**一圈 = 一级类别**。顶级在最外圈、子类往里一层，
+      // 层级不靠猜 —— 看它在哪一圈就行。
+      const ringBuckets = {};
+      this.nodes.forEach((n) => {
+        if (n.type !== 'cat' || !n.sec) return;
+        const d = Math.min(2, n.sec.depth || 0);
+        (ringBuckets[d] = ringBuckets[d] || []).push(n.ring || 0);
+      });
+      const ringR = Object.keys(ringBuckets).map((d) => {
+        const arr = ringBuckets[d];
+        return arr.reduce((a, b) => a + b, 0) / arr.length;
+      });
+      ringR.forEach((r, i) => {
+        if (!(r > 6)) return;
+        ctx.beginPath();
+        ctx.arc(ctr.x, ctr.y, r, 0, Math.PI * 2);
+        ctx.setLineDash([3, 7]);
+        ctx.lineWidth = i === 0 ? 1.4 : 1;
+        ctx.strokeStyle = DK ? 'rgba(130,150,190,.34)' : 'rgba(150,164,192,.42)';
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+      // 圆心一个小点：环和扇形都是从这儿发散的，让人看懂"同心"这件事
+      ctx.beginPath();
+      ctx.arc(ctr.x, ctr.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = DK ? 'rgba(160,178,214,.65)' : 'rgba(140,156,186,.65)';
+      ctx.fill();
     }
 
     // ---- 边 ----
@@ -709,10 +775,11 @@ Page({
         ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
       } else if (e.kind === 'tree') {
-        // 类别父子：画成更实的径向短线（父在外环、子在内环，几乎是一条向内的线）
-        ctx.strokeStyle = 'rgba(120,132,152,' + (0.9 * alpha) + ')';
-        ctx.lineWidth = 1.6;
-        ctx.setLineDash([3, 3]);
+        // 类别父子：**实线 + 箭头指向子类**（父在外圈、子在内圈，线是向内的一条）
+        ctx.strokeStyle = DK ? 'rgba(170,188,222,' + (0.75 * alpha) + ')'
+                             : 'rgba(110,124,148,' + (0.8 * alpha) + ')';
+        ctx.lineWidth = 1.7;
+        ctx.setLineDash([]);
       } else {
         ctx.strokeStyle = 'rgba(195,204,219,' + (0.55 * alpha) + ')';
         ctx.lineWidth = 1;
@@ -720,6 +787,32 @@ Page({
       }
       ctx.stroke();
       ctx.setLineDash([]);
+    });
+
+    // ---- 父子箭头：让"谁是子类"不用靠猜 ----
+    this.edges.forEach((e) => {
+      if (e.kind !== 'tree') return;
+      const a = idx[e.a], b = idx[e.b];
+      if (!a || !b || !a.sec || !b.sec) return;
+      const da = a.sec.depth || 0;
+      const db = b.sec.depth || 0;
+      if (da === db) return;
+      const child = da > db ? a : b;
+      const parent = da > db ? b : a;
+      if (hiddenByBlob(child) || hiddenByBlob(parent)) return;
+      if (!cull(child.x, child.y) && !cull(parent.x, parent.y)) return;
+      const ang = Math.atan2(child.y - parent.y, child.x - parent.x);
+      const tipR = graphLib.radiusOf(child) + 2.5;
+      const tx = child.x - Math.cos(ang) * tipR;
+      const ty = child.y - Math.sin(ang) * tipR;
+      const size = 4.6;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - Math.cos(ang - 0.42) * size, ty - Math.sin(ang - 0.42) * size);
+      ctx.lineTo(tx - Math.cos(ang + 0.42) * size, ty - Math.sin(ang + 0.42) * size);
+      ctx.closePath();
+      ctx.fillStyle = DK ? 'rgba(170,188,222,.9)' : 'rgba(110,124,148,.95)';
+      ctx.fill();
     });
 
     // ---- 节点 ----
