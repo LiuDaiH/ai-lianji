@@ -36,6 +36,16 @@ page {
   --card: #FFFFFF;
   --card-2: #FCFDFF;    /* 卡面渐变终点（各页面让它偏自己的主题色） */
 
+  /* ---------- hero 渐变（统计页 / 首页共用一套视觉语言） ---------- */
+  --hero-grad:
+    radial-gradient(120% 80% at 86% 4%, rgba(255,196,110,.30) 0%, rgba(255,196,110,0) 56%),
+    radial-gradient(90% 70% at 6% 98%, rgba(96,226,196,.22) 0%, rgba(96,226,196,0) 60%),
+    linear-gradient(158deg, #0D1734 0%, #16307A 46%, #2C4FD8 100%);
+  --hero-shadow: 0 14rpx 36rpx rgba(13,23,52,.28);
+  --hero-ink: #FFFFFF;
+  --hero-ink-2: rgba(255,255,255,.78);
+  --hero-accent: #FFD79A;
+
   /* ---------- 形状 ---------- */
   --r: 22rpx;
   --r-lg: 30rpx;

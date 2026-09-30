@@ -7,73 +7,168 @@
     <view class="cat-bar-go">切换 ›</view>
   </view>
 
-  <view class="card" id="kpi-card">
-    <view class="kpis">
-      <view class="kpi"><view class="kpi-num">{{total}}</view><view class="subtle">卡片</view></view>
-      <view class="kpi"><view class="kpi-num">{{dueCount}}</view><view class="subtle">待复习</view></view>
-      <view class="kpi"><view class="kpi-num">{{streak}}</view><view class="subtle">连续天数</view></view>
-      <view class="kpi"><view class="kpi-num">{{totalReviews}}</view><view class="subtle">累计复习</view></view>
+  <!-- ============ hero：一眼看进度（深色渐变 + 斜纹，和产品介绍同一个视觉语言） ============ -->
+  <view class="hero" id="kpi-card">
+    <view class="hero-row">
+      <view class="hero-big">{{streak}}</view>
+      <view class="hero-unit">天连续</view>
+      <view class="hero-side">
+        <view class="hero-line">最长连续 <text class="hero-em">{{longest}}</text> 天</view>
+        <view class="hero-line">累计复习 <text class="hero-em">{{totalReviews}}</text> 次 · 正确率 <text class="hero-em">{{acc}}%</text></view>
+      </view>
+    </view>
+
+    <view class="hero-nums">
+      <view class="hn"><view class="hn-n">{{total}}</view><view class="hn-l">卡片</view></view>
+      <view class="hn"><view class="hn-n">{{dueCount}}</view><view class="hn-l">待复习</view></view>
+      <view class="hn"><view class="hn-n">{{todayDone}}</view><view class="hn-l">今天已练</view></view>
+    </view>
+
+    <!-- 掌握度堆叠条：三档一眼看比例 -->
+    <view class="mbar">
+      <view class="mb-seg mastered" style="flex:{{mastery.mastered || 0}}"></view>
+      <view class="mb-seg learning" style="flex:{{mastery.learning || 0}}"></view>
+      <view class="mb-seg fresh" style="flex:{{mastery.new || 0}}"></view>
+    </view>
+    <view class="mbar-legend">
+      <text class="ml">🟢 已掌握 {{mastery.mastered || 0}}</text>
+      <text class="ml">🔵 学习中 {{mastery.learning || 0}}</text>
+      <text class="ml">⚪ 未学 {{mastery.new || 0}}</text>
     </view>
   </view>
 
-  <view class="card" id="heat-card">
-    <view class="sec">学习热力图</view>
-    <view class="subtle">
-      最近 8 周，每格一天，颜色越深练得越多 · 范围：{{rangeShort}}
+  <!-- ============ 学习日历（近 12 周 / 整年 + 选年份 + 点某天看明细） ============ -->
+  <view class="card" id="cal-card">
+    <view class="sec">学习日历</view>
+    <view class="cal-ops">
+      <view class="seg">
+        <view class="seg-i {{calMode === 'weeks' ? 'on' : ''}}" data-m="weeks" bindtap="onCalMode">近 12 周</view>
+        <view class="seg-i {{calMode === 'year' ? 'on' : ''}}" data-m="year" bindtap="onCalMode">整年</view>
+      </view>
+      <view class="years" wx:if="{{calMode === 'year'}}">
+        <view class="year-chip {{item === calYear ? 'on' : ''}}" wx:for="{{calYears}}" wx:key="*this"
+              data-y="{{item}}" bindtap="onPickYear">{{item}}</view>
+      </view>
     </view>
 
-    <view class="heat-box">
-      <!-- 顶部月份刻度 -->
-      <view class="heat-months">
-        <text class="heat-month" wx:for="{{heat.monthSpans}}" wx:key="col"
-              style="left:{{item.col * 34}}rpx">{{item.text}}</text>
-      </view>
-
-      <view class="heat-body">
-        <!-- 左侧星期刻度 -->
-        <view class="heat-days">
-          <text class="heat-day" wx:for="{{heat.rowLabels}}" wx:key="row"
-                style="top:{{item.row * 34}}rpx">{{item.text}}</text>
+    <scroll-view scroll-x class="cal-x">
+      <view class="cal" style="width:{{cal.grid.length * calPitch + 44}}rpx">
+        <view class="cal-months" style="margin-left:34rpx;height:30rpx">
+          <text class="cal-month" wx:for="{{cal.monthSpans}}" wx:key="col"
+                style="left:{{item.col * calPitch}}rpx">{{item.text}}</text>
         </view>
 
-        <!-- 格子 -->
-        <view class="heat">
-          <view class="heat-col" wx:for="{{heat.grid}}" wx:for-item="col" wx:key="index">
-            <view class="heat-cell lv{{cell.level}} {{cell.isToday ? 'today' : ''}} {{cell.key === pickedKey ? 'picked' : ''}}"
-                  wx:for="{{col}}" wx:for-item="cell" wx:key="key"
-                  data-key="{{cell.key}}" data-count="{{cell.count}}"
-                  data-md="{{cell.md}}" data-future="{{cell.isFuture}}"
-                  bindtap="onPickDay"></view>
+        <view class="cal-body">
+          <view class="cal-days">
+            <text class="cal-day" wx:for="{{cal.rowLabels}}" wx:key="row"
+                  style="top:{{item.row * calPitch}}rpx">{{item.text}}</text>
+          </view>
+
+          <view class="cal-grid">
+            <view class="cal-col" wx:for="{{cal.grid}}" wx:for-item="col" wx:key="index">
+              <view class="cal-cell lv{{cell.level}} {{cell.isToday ? 'today' : ''}} {{cell.key === pickedKey ? 'picked' : ''}}"
+                    wx:for="{{col}}" wx:for-item="cell" wx:key="key"
+                    style="width:{{calCell}}rpx;height:{{calCell}}rpx"
+                    data-key="{{cell.key}}" data-count="{{cell.count}}" data-md="{{cell.md}}" data-future="{{cell.isFuture}}"
+                    bindtap="onPickDay"></view>
+            </view>
           </view>
         </view>
       </view>
-    </view>
+    </scroll-view>
 
-    <!-- 点格子的读数 -->
-    <view class="heat-read {{pickedDay ? '' : 'idle'}}">
+    <!-- 点某天的读数：不只是"几次"，还有对几道、涉及哪几张卡 -->
+    <view class="cal-read {{pickedDay ? '' : 'idle'}}">
       <block wx:if="{{pickedDay}}">
-        <text class="hr-date">{{pickedDay.md}}</text>
-        <text class="hr-val" wx:if="{{pickedDay.future}}">还没到 · 未开始</text>
-        <text class="hr-val" wx:elif="{{pickedDay.count > 0}}">复习 {{pickedDay.count}} 次</text>
-        <text class="hr-val none" wx:else>这天没有复习记录</text>
+        <view class="cr-head">
+          <text class="cr-date">{{pickedDay.md}}</text>
+          <text class="cr-val" wx:if="{{pickedDay.future}}">还没到</text>
+          <text class="cr-val" wx:elif="{{pickedDay.count > 0}}">
+            复习 {{pickedDetail.count}} 次 · 对 {{pickedDetail.right}} 错 {{pickedDetail.wrong}} · 正确率 {{pickedDetail.acc}}%
+          </text>
+          <text class="cr-val none" wx:else>这天没有复习记录</text>
+        </view>
+        <view class="cr-notes" wx:if="{{pickedDetail.titles.length}}">
+          <view class="cr-note" wx:for="{{pickedDetail.titles}}" wx:key="id" data-id="{{item.id}}"
+                bindtap="onTapDayNote" hover-class="hover-dim">· {{item.title}}</view>
+        </view>
       </block>
-      <block wx:else>点任意一格，看那天练了多少</block>
+      <block wx:else>点任意一格，看那天练了什么</block>
     </view>
 
-    <!-- 图例：给出具体数值，而不是笼统的"少 / 多" -->
-    <view class="heat-legend">
-      <view class="hl-item"><view class="heat-cell lv0"></view><text>0</text></view>
-      <view class="hl-item"><view class="heat-cell lv1"></view><text>1-4</text></view>
-      <view class="hl-item"><view class="heat-cell lv2"></view><text>5-14</text></view>
-      <view class="hl-item"><view class="heat-cell lv3"></view><text>15+</text></view>
-      <view class="hl-item"><view class="heat-cell lv-1"></view><text>未到</text></view>
+    <view class="cal-legend">
+      <view class="cl-i"><view class="cal-cell lv0" style="width:24rpx;height:24rpx"></view><text>0</text></view>
+      <view class="cl-i"><view class="cal-cell lv1" style="width:24rpx;height:24rpx"></view><text>1-2</text></view>
+      <view class="cl-i"><view class="cal-cell lv2" style="width:24rpx;height:24rpx"></view><text>3-5</text></view>
+      <view class="cl-i"><view class="cal-cell lv3" style="width:24rpx;height:24rpx"></view><text>6-9</text></view>
+      <view class="cl-i"><view class="cal-cell lv4" style="width:24rpx;height:24rpx"></view><text>10+</text></view>
+      <view class="cl-i"><view class="cal-cell lv-1" style="width:24rpx;height:24rpx"></view><text>未到</text></view>
     </view>
 
-    <!-- 一句话总结 -->
-    <view class="heat-sum">
-      最近 8 周合计 <text class="hs-n">{{heat.summary.total}}</text> 次，
-      有记录 <text class="hs-n">{{heat.summary.activeDays}}</text> 天<block
-      wx:if="{{heat.summary.best > 0}}">，最猛的一天 <text class="hs-n">{{heat.summary.best}}</text> 次（{{heat.summary.bestDay}}）</block>。
+    <view class="cal-sum">
+      {{calMode === 'year' ? calYear + ' 年' : '最近 12 周'}}合计 <text class="hs-n">{{cal.summary.total}}</text> 次，
+      有记录 <text class="hs-n">{{cal.summary.activeDays}}</text> 天<block
+      wx:if="{{cal.summary.best > 0}}">，最猛的一天 <text class="hs-n">{{cal.summary.best}}</text> 次（{{cal.summary.bestDay}}）</block>。
+    </view>
+  </view>
+
+  <!-- ============ 接下来 7 天要复习多少（提前知道哪天忙） ============ -->
+  <view class="card">
+    <view class="sec">接下来 7 天</view>
+    <view class="subtle">每天有多少张到期 —— 哪天忙，心里有数</view>
+    <view class="fc">
+      <view class="fc-col" wx:for="{{forecast}}" wx:key="label">
+        <view class="fc-n {{item.count === 0 ? 'zero' : ''}}">{{item.count}}</view>
+        <view class="fc-bar-wrap">
+          <view class="fc-bar" style="height:{{item.count > 0 ? 24 + item.count * 6 : 6}}rpx"></view>
+        </view>
+        <view class="fc-l">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 本周 vs 上周 + 学习时段 ============ -->
+  <view class="card">
+    <view class="sec">这一周 vs 上一周</view>
+    <view class="wk">
+      <view class="wk-box">
+        <view class="wk-n">{{week.cur.n}}</view>
+        <view class="subtle">本周复习</view>
+        <view class="wk-acc">正确率 {{week.cur.acc}}%</view>
+      </view>
+      <view class="wk-mid {{week.delta > 0 ? 'up' : (week.delta < 0 ? 'down' : '')}}">
+        <view class="wk-d">{{week.delta > 0 ? '↑' : (week.delta < 0 ? '↓' : '=')}}{{week.delta > 0 ? week.delta : (week.delta < 0 ? -week.delta : 0)}}</view>
+        <view class="wk-dl">vs 上周</view>
+      </view>
+      <view class="wk-box">
+        <view class="wk-n">{{week.prev.n}}</view>
+        <view class="subtle">上周复习</view>
+        <view class="wk-acc">正确率 {{week.prev.acc}}%</view>
+      </view>
+    </view>
+
+    <view class="sec mt">你一般什么时候练</view>
+    <view class="hrs">
+      <view class="hr" wx:for="{{hours}}" wx:key="h">
+        <view class="hr-bar {{item.peak ? 'peak' : ''}}" style="height:{{item.pct > 0 ? (6 + item.pct * 0.54) : 3}}rpx"></view>
+      </view>
+    </view>
+    <view class="hrs-x">
+      <text>0</text><text>6</text><text>12</text><text>18</text><text>24</text>
+    </view>
+    <view class="subtle">峰值在 <text class="hs-n">{{peakHour}}</text> 点 —— 这个时段最适合安排复习</view>
+  </view>
+
+  <!-- ============ 类别排行：哪一块最欠 ============ -->
+  <view class="card" wx:if="{{cats.length}}">
+    <view class="sec">各块掌握情况</view>
+    <view class="subtle">按卡片数排前 5 类，条子越长越熟</view>
+    <view class="ct" wx:for="{{cats}}" wx:key="id">
+      <view class="ct-top">
+        <view class="ct-name">{{item.name}}</view>
+        <view class="ct-n">{{item.mastered}}/{{item.total}} 已掌握</view>
+      </view>
+      <view class="ct-track"><view class="ct-fill" style="width:{{item.pct}}%"></view></view>
     </view>
   </view>
 
@@ -105,7 +200,6 @@
     <view hover-class="hover-dim" class="btn-ai mt" bindtap="onAskAdvice">
       {{advice ? '再问一次' : '🤖 看看我该练什么'}}
     </view>
-    <view class="advice-note subtle" wx:if="{{!aiOn}}">还没配置云开发 —— 配置后这里就能用</view>
   </view>
 
   <view class="card" id="obsidian-card">
@@ -114,21 +208,33 @@
     <view hover-class="hover-dim" class="btn-primary mt" bindtap="goObsidian">打开 Obsidian 同步</view>
   </view>
 
-  <view class="card" id="backup-card">
-    <view class="sec">数据备份</view>
-    <view class="subtle">数据存在本机。换手机或重装前，先导出一份（含类别）</view>
-    <view class="subtle">导入是**追加**：内容相同的卡片自动跳过，不会覆盖你现在的数据。</view>
-    <view hover-class="hover-dim" class="btn-primary mt" bindtap="onExport">导出备份文件</view>
+  <!-- ============ 设置与关于：介绍模式做成分段控件，一眼看得见 ============ -->
+  <view class="card" id="settings-card">
+    <view class="sec">设置</view>
+
+    <view class="set-row">
+      <view class="set-l">
+        <view class="set-t">产品介绍弹窗</view>
+        <view class="subtle">下次打开小程序时要不要再放一遍</view>
+      </view>
+    </view>
+    <view class="seg seg-wide">
+      <view class="seg-i {{introMode === 'always' ? 'on' : ''}}" data-k="always" bindtap="onPickIntroMode">每次打开</view>
+      <view class="seg-i {{introMode === 'first' ? 'on' : ''}}" data-k="first" bindtap="onPickIntroMode">仅首次</view>
+      <view class="seg-i {{introMode === 'never' ? 'on' : ''}}" data-k="never" bindtap="onPickIntroMode">不再显示</view>
+    </view>
+
+    <view class="set-row mt">
+      <view class="set-l">
+        <view class="set-t">数据备份</view>
+        <view class="subtle">数据存在本机，换手机/重装前导出一份（导入是追加，不会覆盖）</view>
+      </view>
+    </view>
+    <view hover-class="hover-dim" class="btn-primary" bindtap="onExport">导出备份文件</view>
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onImport">从聊天文件导入</view>
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onImportClipboard">从剪贴板导入</view>
-  </view>
-
-  <!-- 设置入口：**介绍弹窗的模式**、AI / 震动开关、操作引导都在这一页 -->
-  <view class="card">
-    <view class="sec">设置与关于</view>
-    <view class="subtle">介绍弹窗显示模式（每次 / 仅首次 / 不再显示）、AI 开关、震动开关、操作引导 —— 都在这页</view>
-    <view hover-class="hover-dim" class="btn-ghost mt" bindtap="goHelp">打开「关于这个工具」</view>
     <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="onRestartTour">再看一遍本页引导</view>
+    <view hover-class="hover-dim" class="btn-ghost mt-s" bindtap="goHelp">关于这个工具 ›</view>
   </view>
 
   <cat-picker show="{{showPicker}}" active="{{activeCat}}"

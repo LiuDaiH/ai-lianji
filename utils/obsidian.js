@@ -303,6 +303,18 @@ function matchImport(existing, incoming) {
     (byNode[nk] = byNode[nk] || []).push(n);
   });
 
+  // 同一节里的池子必须按「它在笔记里的原始顺序」排好：
+  // 否则「改了一句话」的模糊匹配会随存储顺序漂移，把改名（连带掌握度）安到隔壁那张卡头上。
+  // 导入时会记下 ord（该卡在本节里第几条），老数据退回 createdAt。
+  Object.keys(byNode).forEach((k) => {
+    byNode[k].sort((a, b) => {
+      const oa = typeof a.ord === 'number' ? a.ord : 9999;
+      const ob = typeof b.ord === 'number' ? b.ord : 9999;
+      if (oa !== ob) return oa - ob;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+  });
+
   const used = {};
   const updates = [];
   const keeps = [];

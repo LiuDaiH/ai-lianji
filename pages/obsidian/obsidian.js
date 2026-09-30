@@ -401,6 +401,7 @@ Page({
 
     const counters = { n: 0 };
     const garbledSet = {};
+    const nodeSeq = {};      // 每张卡在「它所属小节里」的序号 —— 模糊匹配靠它对齐
     const prepared = incoming.map((c) => {
       // ⚠️ 文件夹名可能是乱码（Windows 压缩包用 GBK 文件名，解出来按 UTF-8 读就花了）。
       //    这种名字**绝不拿来当类别名** —— 退回到「从笔记内容里来的」标题层级/文件名。
@@ -410,12 +411,16 @@ Page({
       });
       const path = folders.concat(opt.head ? c.nodePath : [c.fileTitle]);
       const r = cat.ensurePath(path, counters);
+      const nk = String(c.file) + '|' + (c.nodePath || []).join('|');
+      const ord = nodeSeq[nk] || 0;
+      nodeSeq[nk] = ord + 1;
       return {
         title: c.title,
         content: c.content,
         tags: c.tags || [],
         categoryId: r.id || null,
         lineNo: typeof c.lineNo === 'number' ? c.lineNo : null,
+        ord,                                             // 本节内第几条（0 起）
         src: { file: c.file, nodePath: c.nodePath },
       };
     });

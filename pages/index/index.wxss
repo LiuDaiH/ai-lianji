@@ -170,3 +170,18 @@ page {
   color: #FFF; font-size: 58rpx; line-height: 104rpx; text-align: center;
   z-index: 20;
 }
+
+/* 首页最重要的那块（今天该复习 N 张）跟统计页用同一套 hero 视觉：
+   深墨蓝 + 暖光 + 斜纹，比一整片浅蓝更抓眼，也更像设计过 */
+.start-card.hero {
+  position: relative; overflow: hidden;
+  background: var(--hero-grad); color: var(--hero-ink);
+  box-shadow: var(--hero-shadow);
+}
+.start-card.hero::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  background-image: repeating-linear-gradient(58deg, rgba(255,255,255,.055) 0 1rpx, rgba(255,255,255,0) 1rpx 26rpx);
+  pointer-events: none;
+}
+.start-card.hero .sc-title { color: #FFFFFF; position: relative; }
+.start-card.hero .sc-sub { color: rgba(255,255,255,.78); position: relative; }

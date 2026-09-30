@@ -1,5 +1,6 @@
 // pages/stats/stats.js —— 学习统计（按类别范围）+ 本页引导
 const store = require('../../utils/store.js');
+const catLib = require('../../utils/category.js');
 const stats = require('../../utils/stats.js');
 const filter = require('../../utils/filter.js');
 const tours = require('../../utils/tours.js');
@@ -10,8 +11,14 @@ const CAT_KEY = 'sc_filter_cat';
 
 Page({
   data: {
-    heat: { grid: [],  monthSpans: [], rowLabels: [], summary: {} },
-    pickedDay: null, pickedKey: '',
+    // 学习日历（近 12 周 / 整年两种尺度共用一套模板）
+    calMode: 'weeks', calYear: 0, calYears: [],
+    cal: { grid: [], monthSpans: [], rowLabels: [], summary: {} },
+    calPitch: 54, calCell: 44, calBig: true,
+    pickedDay: null, pickedKey: '', pickedDetail: null,
+    // 新增维度
+    longest: 0, acc: 0, mastery: null, week: null, hours: [], peakHour: 0,
+    forecast: [], cats: [],
     hardest: [], streak: 0, todayDone: 0,
     totalReviews: 0, total: 0, isEmpty: true,
     activeCat: 'all', rangeText: '全部卡片', rangeShort: '全部',
@@ -19,12 +26,15 @@ Page({
     tourActive: false, tourFlow: 'stats', pageStyle: '',
     // AI 学习诊断
     aiOn: false, advice: '', adviceLoading: false, adviceAt: 0,
+    // 设置：产品介绍弹窗模式（和「关于」页读写同一个 key）
+    introMode: 'first',
   },
 
   onShow() {
     // 首次进入这个板块时自动走一遍引导
     if (!wx.getStorageSync('sc_tour_done_stats')) this.setData({ tourActive: true, tourFlow: 'stats' });
     this.setData({ aiOn: ai.enabled() });
+    try { this.setData({ introMode: wx.getStorageSync('sc_intro_mode') || 'first' }); } catch (e) { /* ignore */ }
     const jump = wx.getStorageSync(CAT_KEY);
     if (jump) { wx.removeStorageSync(CAT_KEY); this.setData({ activeCat: jump }); }
 
@@ -47,20 +57,62 @@ Page({
     const scopedLogs = filter.logsByNotes(logs, scoped);
     const now = Date.now();
 
+    this._scopedLogs = scopedLogs;
+    const hours = stats.hourHist(scopedLogs);
+    const years = stats.logYears(scopedLogs, now);
+
     this.setData({
       rangeText: filter.rangeText(this.data.activeCat),
       rangeShort: filter.rangeShort(this.data.activeCat),
-      heat: stats.heatDetail(scopedLogs, 8),
-      pickedDay: null, pickedKey: '',
+      pickedDay: null, pickedKey: '', pickedDetail: null,
       hardest: stats.hardest(scoped, 5),
       streak: stats.streak(scopedLogs),
+      longest: stats.longestStreak(scopedLogs),
+      acc: stats.accuracy(scopedLogs),
+      mastery: stats.mastery(scoped),
       todayDone: stats.todayCount(scopedLogs),
       totalReviews: stats.totalReviews(scopedLogs),
       total: scoped.length,
       dueCount: scoped.filter((n) => (n.dueAt || 0) <= now).length,
+      week: stats.weekCompare(scopedLogs, now),
+      forecast: stats.forecast(scoped, 7),
+      peakHour: hours.peak,
+      hours: hours.buckets.map((v, i) => ({
+        h: i, pct: Math.round((v / hours.max) * 100), n: v, peak: i === hours.peak,
+      })),
+      cats: stats.byCategory(scoped, catLib.list(), 5),
+      calYears: years,
+      calYear: (this.data.calYear && years.indexOf(this.data.calYear) >= 0)
+        ? this.data.calYear : years[0],
       isEmpty: allNotes.length === 0,
-    });
+    }, () => this.buildCal());
   },
+
+  /** 按当前尺度（近 12 周 / 整年）算日历网格 */
+  buildCal() {
+    const lgs = this._scopedLogs || [];
+    const now2 = Date.now();
+    if (this.data.calMode === 'year') {
+      const cal2 = stats.yearCalendar(lgs, this.data.calYear || new Date(now2).getFullYear(), { now: now2 });
+      this.setData({ cal: cal2, calPitch: 44, calCell: 34, calBig: false,
+                     pickedDay: null, pickedKey: '', pickedDetail: null });
+      return;
+    }
+    this.setData({ cal: stats.heatDetail(lgs, 12), calPitch: 54, calCell: 44, calBig: true,
+                   pickedDay: null, pickedKey: '', pickedDetail: null });
+  },
+
+  onCalMode(e) {
+    const m = e.currentTarget.dataset.m;
+    if (m === this.data.calMode) return;
+    this.setData({ calMode: m }, () => this.buildCal());
+  },
+
+  onPickYear(e) {
+    this.setData({ calYear: Number(e.currentTarget.dataset.y) }, () => this.buildCal());
+  },
+
+  onTapDayNote(e) { wx.navigateTo({ url: '/pages/detail/detail?id=' + e.currentTarget.dataset.id }); },
 
   // ---------- 引导 ----------
   onTourLock(e) {
@@ -84,6 +136,18 @@ Page({
 
   onTapNote(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); },
 
+  /** 介绍弹窗模式：每次打开 / 仅首次 / 不再显示 */
+  onPickIntroMode(e) {
+    const k = e.currentTarget.dataset.k;
+    try { wx.setStorageSync('sc_intro_mode', k); } catch (err) { /* ignore */ }
+    this.setData({ introMode: k });
+    wx.showToast({
+      title: k === 'always' ? '每次打开都会放介绍'
+        : (k === 'never' ? '以后不再自动放介绍' : '只在第一次打开时放'),
+      icon: 'none',
+    });
+  },
+
   goHelp() { wx.navigateTo({ url: '/pages/help/help' }); },
   // Obsidian 是 tabBar 页面，必须用 switchTab
   goObsidian() { wx.switchTab({ url: '/pages/obsidian/obsidian' }); },
@@ -91,10 +155,16 @@ Page({
   /** 点热力图某一格 → 显示那天练了多少 */
   onPickDay(e) {
     const d = e.currentTarget.dataset;
-    if (!d.key) return;
+    if (d.future) {
+      this.setData({ pickedKey: d.key, pickedDetail: null,
+                     pickedDay: { md: d.md, future: true, count: 0 } });
+      return;
+    }
+    const nameOf = (id) => { const n = store.getNote(id); return n ? n.title : ''; };
     this.setData({
       pickedKey: d.key,
-      pickedDay: { key: d.key, count: Number(d.count) || 0, md: d.md || '', future: d.future === 'true' },
+      pickedDay: { md: d.md, future: false, count: Number(d.count) || 0 },
+      pickedDetail: stats.dayDetail(this._scopedLogs || [], d.key, nameOf),
     });
   },
 

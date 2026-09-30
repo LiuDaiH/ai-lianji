@@ -125,6 +125,180 @@ function heatDetail(logs, weeks) {
   };
 }
 
+/** 星期刻度行（一/三/五/日）—— 热力图和年历共用 */
+const ROW_LABELS = [
+  { row: 0, text: '一' },
+  { row: 2, text: '三' },
+  { row: 4, text: '五' },
+  { row: 6, text: '日' },
+];
+
+/** 练了多少次 → 色阶（0-4）。年历和热力图共用同一套档位，颜色才可比 */
+function heatLevel(n) {
+  if (!n) return 0;
+  if (n <= 2) return 1;
+  if (n <= 5) return 2;
+  if (n <= 9) return 3;
+  return 4;
+}
+
+/** 周一为第一天的时间戳（用于算「这一周」的边界） */
+function startOfWeek(ts) {
+  const d = new Date(ts);
+  const dow = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dow);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** 有记录的年份（倒序），永远带上今年 */
+function logYears(logs, now) {
+  const set = {};
+  set[new Date(now || Date.now()).getFullYear()] = true;
+  (logs || []).forEach((l) => { if (l && l.at) set[new Date(l.at).getFullYear()] = true; });
+  return Object.keys(set).map(Number).sort((a, b) => b - a);
+}
+
+/**
+ * 年历：整年 53 列 × 7 天（GitHub 那种），可以整年横着滑
+ * 返回形状和 heatDetail 完全一致（grid / monthSpans / rowLabels），页面一套模板就能渲染两种尺度
+ */
+function yearCalendar(logs, year, opts) {
+  const o = opts || {};
+  const now = o.now || Date.now();
+  const y = year || new Date(now).getFullYear();
+  const todayKey = dayKey(now);
+
+  const counts = {};
+  (logs || []).forEach((l) => {
+    const ts = l.at || 0;
+    if (new Date(ts).getFullYear() !== y) return;
+    const k = dayKey(ts);
+    counts[k] = (counts[k] || 0) + 1;
+  });
+
+  const start = new Date(y, 0, 1);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  const end = new Date(y, 11, 31);
+  end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
+
+  const grid = [];
+  const monthSpans = [];
+  const cur = new Date(start.getTime());
+  let col = 0;
+  let lastMonth = -1;
+  while (cur <= end) {
+    const colDays = [];
+    for (let r = 0; r < 7; r += 1) {
+      const ts = cur.getTime();
+      const inYear = cur.getFullYear() === y;
+      const k = dayKey(ts);
+      const n = inYear ? (counts[k] || 0) : 0;
+      colDays.push({
+        key: k,
+        md: (cur.getMonth() + 1) + '/' + cur.getDate(),
+        count: n,
+        level: inYear ? heatLevel(n) : -1,
+        inYear, isToday: k === todayKey, isFuture: ts > now,
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+    const firstIn = colDays.filter((d) => d.inYear)[0];
+    if (firstIn) {
+      const m = Number(firstIn.key.slice(5, 7));
+      if (m !== lastMonth) { monthSpans.push({ col, text: m + '月' }); lastMonth = m; }
+    }
+    grid.push(colDays);
+    col += 1;
+  }
+
+  let total = 0, activeDays = 0, best = 0, bestDay = '';
+  Object.keys(counts).forEach((k) => {
+    total += counts[k]; activeDays += 1;
+    if (counts[k] > best) { best = counts[k]; bestDay = k; }
+  });
+  return {
+    year: y, grid, cols: grid.length, monthSpans, rowLabels: ROW_LABELS,
+    summary: { total, activeDays, best, bestDay },
+  };
+}
+
+/** 最长连续学习天数（历史纪录） */
+function longestStreak(logs) {
+  const days = Array.from(new Set((logs || []).map((l) => dayKey(l.at || 0)))).sort();
+  let best = 0, run = 0, prev = null;
+  days.forEach((k) => {
+    const t = new Date(k + 'T00:00:00').getTime();
+    run = (prev !== null && t - prev === DAY) ? run + 1 : 1;
+    prev = t;
+    if (run > best) best = run;
+  });
+  return best;
+}
+
+/** 本周 vs 上周（复习次数 / 答对率） */
+function weekCompare(logs, now) {
+  const t = now || Date.now();
+  const w0 = startOfWeek(t);
+  const agg = (from, to) => {
+    const hit = (logs || []).filter((l) => (l.at || 0) >= from && (l.at || 0) < to);
+    const right = hit.filter((l) => l.right).length;
+    return { n: hit.length, right, acc: hit.length ? Math.round((right / hit.length) * 100) : 0 };
+  };
+  const cur = agg(w0, w0 + 7 * DAY);
+  const prev = agg(w0 - 7 * DAY, w0);
+  return { cur, prev, delta: cur.n - prev.n };
+}
+
+/** 学习时段分布（一天里哪个小时练得最多） */
+function hourHist(logs) {
+  const buckets = new Array(24).fill(0);
+  (logs || []).forEach((l) => {
+    const h = new Date(l.at || 0).getHours();
+    if (h >= 0 && h < 24) buckets[h] += 1;
+  });
+  let peak = 0;
+  buckets.forEach((v, i) => { if (v > buckets[peak]) peak = i; });
+  return { buckets, peak, max: Math.max(1, Math.max.apply(null, buckets)) };
+}
+
+/** 某一天的明细：练了几次、对几道、涉及哪几张卡 */
+function dayDetail(logs, key, nameOf) {
+  const hit = (logs || []).filter((l) => dayKey(l.at || 0) === key);
+  const right = hit.filter((l) => l.right).length;
+  const titles = [];
+  const seen = {};
+  hit.forEach((l) => {
+    if (seen[l.noteId]) return;
+    seen[l.noteId] = true;
+    const t = nameOf ? nameOf(l.noteId) : '';
+    if (t && titles.length < 6) titles.push({ id: l.noteId, title: t });
+  });
+  return {
+    count: hit.length, right, wrong: hit.length - right,
+    acc: hit.length ? Math.round((right / hit.length) * 100) : 0,
+    titles,
+  };
+}
+
+/** 总体正确率 */
+function accuracy(logs) {
+  const all = logs || [];
+  if (!all.length) return 0;
+  return Math.round((all.filter((l) => l.right).length / all.length) * 100);
+}
+
+/** 类别排行：卡片数最多的几类，各自的掌握率（一眼看出哪一块最欠） */
+function byCategory(notes, cats, top) {
+  return (cats || []).map((c) => {
+    const mine = (notes || []).filter((n) => n.categoryId === c.id);
+    const m = mastery(mine);
+    return { id: c.id, name: c.name, total: mine.length, mastered: m.mastered,
+             learning: m.learning, fresh: m.new, pct: m.masteredPct };
+  }).filter((x) => x.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, top || 5);
+}
 /**
  * 学习热力图：最近 weeks 周，每列一周（周一为第一行）
  * @returns [[{key, count, level, isToday, isFuture, md}, ...7], ...weeks]
@@ -196,5 +370,7 @@ function totalReviews(logs) {
 
 module.exports = {
   dayKey, masteryLevel, mastery, heatmap, heatDetail, forecast, hardest, streak,
+  ROW_LABELS, heatLevel, startOfWeek, yearCalendar, logYears, longestStreak,
+  weekCompare, hourHist, dayDetail, accuracy, byCategory,
   todayCount, totalReviews,
 };

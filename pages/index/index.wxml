@@ -20,7 +20,7 @@
   </view>
 
   <!-- ============ 一键开始 ============ -->
-  <view class="start-card {{urge ? 'urge' : ''}}" id="alert-bar" bindtap="onStartLearn"
+  <view class="start-card hero {{urge ? 'urge' : ''}}" id="alert-bar" bindtap="onStartLearn"
         hover-class="hover-dim" wx:if="{{!isEmpty}}">
     <view wx:if="{{dueCount > 0}}">
       <view class="sc-title">今天该复习 {{dueCount}} 张</view>

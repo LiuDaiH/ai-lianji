@@ -146,3 +146,133 @@ page {
 }
 .advice-text { font-size: 26rpx; color: #3A4256; line-height: 1.75; }
 .advice-note { display: block; margin-top: 12rpx; text-align: center; font-size: 21rpx; }
+
+/* ==================== hero：和产品介绍同一套视觉语言 ====================
+ * 深墨蓝打底 + 右上暖光 + 左下青绿光 + 一层极淡斜纹（.hero::after）
+ * 不再是一整片纯色渐变 —— 那正是「很 AI」的来源
+ */
+.hero {
+  position: relative; overflow: hidden;
+  border-radius: 24rpx; padding: 30rpx 28rpx 26rpx; margin-bottom: 20rpx;
+  background: var(--hero-grad);
+  box-shadow: var(--hero-shadow);
+}
+.hero::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  background-image: repeating-linear-gradient(58deg, rgba(255,255,255,.055) 0 1rpx, rgba(255,255,255,0) 1rpx 26rpx);
+  pointer-events: none;
+}
+.hero-row { position: relative; display: flex; align-items: baseline; }
+.hero-big { font-size: 76rpx; font-weight: 800; color: #FFF; line-height: 1; letter-spacing: -1rpx; }
+.hero-unit { font-size: 24rpx; color: rgba(255,255,255,.75); margin-left: 10rpx; }
+.hero-side { margin-left: auto; text-align: right; }
+.hero-line { font-size: 22rpx; color: rgba(255,255,255,.78); line-height: 1.7; }
+.hero-em { color: #FFD79A; font-weight: 700; }
+
+.hero-nums { position: relative; display: flex; margin-top: 22rpx; }
+.hn { flex: 1; text-align: center; }
+.hn-n { font-size: 34rpx; font-weight: 700; color: #FFF; }
+.hn-l { font-size: 21rpx; color: rgba(255,255,255,.66); margin-top: 2rpx; }
+
+.mbar { position: relative; display: flex; height: 16rpx; border-radius: 8rpx; overflow: hidden; margin-top: 22rpx; background: rgba(255,255,255,.14); }
+.mb-seg { height: 100%; }
+.mb-seg.mastered { background: #4FD1A5; }
+.mb-seg.learning { background: #6C8FF7; }
+.mb-seg.fresh { background: rgba(255,255,255,.28); }
+.mbar-legend { position: relative; display: flex; gap: 20rpx; margin-top: 12rpx; flex-wrap: wrap; }
+.ml { font-size: 20rpx; color: rgba(255,255,255,.72); }
+
+/* ==================== 分段控件（模式切换用） ==================== */
+.seg { display: flex; background: #F2F5FB; border-radius: 999rpx; padding: 5rpx; }
+.seg-i {
+  padding: 10rpx 24rpx; font-size: 23rpx; color: #6B7280; border-radius: 999rpx;
+  transition: background .16s ease, color .16s ease;
+}
+.seg-i.on { background: #FFF; color: #2C4FD8; font-weight: 600; box-shadow: 0 2rpx 8rpx rgba(31,36,48,.10); }
+.seg-wide { margin-top: 14rpx; }
+.seg-wide .seg-i { flex: 1; text-align: center; padding: 14rpx 0; }
+
+/* ==================== 学习日历 ==================== */
+.cal-ops { display: flex; align-items: center; gap: 14rpx; margin: 14rpx 0 6rpx; flex-wrap: wrap; }
+.years { display: flex; gap: 10rpx; }
+.year-chip {
+  font-size: 22rpx; color: #5A6072; padding: 8rpx 18rpx; border-radius: 999rpx; background: #F2F5FB;
+}
+.year-chip.on { background: #2C4FD8; color: #FFF; font-weight: 600; }
+
+.cal-x { width: 100%; white-space: nowrap; }
+.cal { display: inline-block; padding: 4rpx 0 2rpx; }
+.cal-months { position: relative; height: 30rpx; }
+.cal-month { position: absolute; top: 0; font-size: 19rpx; color: #98A0AE; }
+.cal-body { display: flex; }
+.cal-days { position: relative; width: 34rpx; flex-shrink: 0; }
+.cal-day { position: absolute; left: 0; font-size: 19rpx; color: #98A0AE; }
+.cal-grid { display: flex; gap: 10rpx; }
+.cal-col { display: flex; flex-direction: column; gap: 10rpx; }
+.cal-cell { border-radius: 8rpx; box-sizing: border-box; transition: transform .12s ease; }
+.cal-cell.lv0 { background: #EDF0F7; }
+.cal-cell.lv1 { background: #C3D6FB; }
+.cal-cell.lv2 { background: #8FAEF8; }
+.cal-cell.lv3 { background: #5C84F5; }
+.cal-cell.lv4 { background: linear-gradient(135deg, #6C8FF7, #2C4FD8); }
+.cal-cell.lv-1 { background: transparent; border: 2rpx dashed #E2E7F1; }
+.cal-cell.today { box-shadow: 0 0 0 3rpx var(--brand); }
+.cal-cell.picked { box-shadow: 0 0 0 3rpx #F0851F; transform: scale(1.18); }
+
+.cal-read {
+  margin-top: 18rpx; padding: 16rpx 18rpx; border-radius: 14rpx;
+  background: #F5F7FB; font-size: 23rpx; color: #454B5A; line-height: 1.6;
+}
+.cal-read.idle { color: #9AA0AC; background: transparent; font-size: 22rpx; }
+.cr-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10rpx; }
+.cr-date { font-weight: 700; color: #1F2430; }
+.cr-val { color: #3B6FF5; }
+.cr-val.none { color: #9AA0AC; }
+.cr-notes { margin-top: 10rpx; display: flex; flex-wrap: wrap; gap: 8rpx 18rpx; }
+.cr-note { font-size: 22rpx; color: #5A6072; background: #FFF; padding: 6rpx 14rpx; border-radius: 999rpx; }
+
+.cal-legend { display: flex; gap: 18rpx; margin-top: 16rpx; flex-wrap: wrap; align-items: center; }
+.cl-i { display: flex; align-items: center; gap: 8rpx; font-size: 20rpx; color: #8A90A0; }
+.cal-sum { margin-top: 14rpx; font-size: 22rpx; color: #6B7280; line-height: 1.7; }
+.hs-n { color: #2C4FD8; font-weight: 700; }
+
+/* ==================== 接下来 7 天 ==================== */
+.fc { display: flex; align-items: flex-end; gap: 8rpx; margin-top: 18rpx; }
+.fc-col { flex: 1; text-align: center; }
+.fc-n { font-size: 24rpx; font-weight: 700; color: #2C4FD8; }
+.fc-n.zero { color: #C2CAD8; }
+.fc-bar-wrap { display: flex; align-items: flex-end; justify-content: center; height: 90rpx; margin: 8rpx 0; }
+.fc-bar { width: 100%; max-width: 40rpx; border-radius: 8rpx 8rpx 4rpx 4rpx;
+  background: linear-gradient(180deg, #6C8FF7, #3B6FF5); }
+.fc-l { font-size: 19rpx; color: #98A0AE; }
+
+/* ==================== 本周 vs 上周 ==================== */
+.wk { display: flex; align-items: center; margin-top: 16rpx; }
+.wk-box { flex: 1; text-align: center; padding: 18rpx 0; background: #F7F9FD; border-radius: 16rpx; }
+.wk-n { font-size: 44rpx; font-weight: 800; color: #1F2430; line-height: 1.1; }
+.wk-acc { font-size: 21rpx; color: #6B7280; margin-top: 6rpx; }
+.wk-mid { width: 130rpx; text-align: center; }
+.wk-d { font-size: 30rpx; font-weight: 700; color: #9AA0AC; }
+.wk-mid.up .wk-d { color: #22B573; }
+.wk-mid.down .wk-d { color: #F0851F; }
+.wk-dl { font-size: 19rpx; color: #A8AEBC; }
+
+/* ==================== 时段分布 ==================== */
+.hrs { display: flex; align-items: flex-end; gap: 5rpx; height: 70rpx; margin-top: 14rpx; }
+.hr { flex: 1; display: flex; align-items: flex-end; height: 100%; }
+.hr-bar { width: 100%; border-radius: 4rpx; background: #D9E3FB; }
+.hr-bar.peak { background: linear-gradient(180deg, #FFC46B, #F0851F); }
+.hrs-x { display: flex; justify-content: space-between; margin-top: 6rpx; font-size: 19rpx; color: #A8AEBC; }
+
+/* ==================== 类别排行 ==================== */
+.ct { margin-top: 16rpx; }
+.ct-top { display: flex; align-items: baseline; }
+.ct-name { flex: 1; min-width: 0; font-size: 25rpx; font-weight: 600;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ct-n { font-size: 21rpx; color: #8A90A0; margin-left: 10rpx; }
+.ct-track { height: 14rpx; background: #EDF0F7; border-radius: 8rpx; margin-top: 10rpx; overflow: hidden; }
+.ct-fill { height: 100%; border-radius: 8rpx; background: linear-gradient(90deg, #4FD1A5, #22B573); }
+
+/* ==================== 设置行 ==================== */
+.set-row { margin-top: 6rpx; }
+.set-t { font-size: 27rpx; font-weight: 600; color: #1F2430; margin-bottom: 4rpx; }
