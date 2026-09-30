@@ -36,6 +36,7 @@ function cleanInline(s) {
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')             // 图片
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')          // 链接留文字
     .replace(/`{1,3}([^`]*)`{1,3}/g, '$1')
+    .replace(/(^|\s)#[A-Za-z0-9\u4e00-\u9fa5_\-/]+/g, '$1')   // 行内 #标签 不进标题（标题变干净，标签另有 tags 字段存着）
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/(^|\s)\*([^*]+)\*/g, '$1$2')
     .replace(/(^|\s)_([^_]+)_/g, '$1$2')
@@ -253,6 +254,99 @@ function parseVault(files) {
   return { files: parsed, categories, cards };
 }
 
+/* ==================== ④.5 稳定身份：重复导入要「更新」而不是「新增」 ====================
+ *
+ * 为什么必须有：
+ *   笔记天生要改。老逻辑用「标题 + 内容」全等去重，且 addNotes 只往后追加 ——
+ *   你把某一句改了个字再导入，就会**多出一张双胞胎卡**：旧卡还带着旧掌握度，
+ *   新卡从零开始，掌握度就此分裂。用一周就废。
+ *
+ * 身份怎么定（用导入时就存好的字段，不需要额外记录）：
+ *   精确：file + 标题路径 + 卡片标题          —— 完全没动过的那张
+ *   模糊：file + 标题路径 + **同一节里的顺序** —— 你改了这条的字（标题也跟着变了）
+ */
+
+/** 精确身份：文件 + 节点路径 + 卡片标题 */
+function cardKey(c) {
+  const f = (c && c.src && c.src.file) || '';
+  const p = (c && c.src && c.src.nodePath) || [];
+  return f + '\u0001' + p.join('\u0002') + '\u0001' + String((c && c.title) || '');
+}
+
+/** 节点身份：只到标题路径（不含卡片标题）—— 用来做「同一节下第 i 条」的兜底匹配 */
+function nodeKey(c) {
+  const f = (c && c.src && c.src.file) || '';
+  const p = (c && c.src && c.src.nodePath) || [];
+  return f + '\u0001' + p.join('\u0002');
+}
+
+/**
+ * 把「新导入的卡片」和「库里已有的卡片」对上
+ *
+ * @param existing 库里已有的卡片（需带 src.file / src.nodePath）
+ * @param incoming 这次解析出来的卡片（需带 src.file / src.nodePath）
+ * @returns {
+ *   updates: [{ id, patch, renamed }]   要就地更新的（保留掌握度）
+ *   keeps:   [{ id }]                   命中但内容没变（跳过）
+ *   adds:    [incoming 卡片]             新的
+ *   orphans: [existing 卡片]             同一批文件里、这次没再出现的（疑似已从笔记删除）
+ * }
+ */
+function matchImport(existing, incoming) {
+  const byKey = {};
+  const byNode = {};
+  (existing || []).forEach((n) => {
+    if (!n || !n.src || !n.src.file) return;
+    const k = cardKey(n);
+    if (!byKey[k]) byKey[k] = n;
+    const nk = nodeKey(n);
+    (byNode[nk] = byNode[nk] || []).push(n);
+  });
+
+  const used = {};
+  const updates = [];
+  const keeps = [];
+  const adds = [];
+
+  (incoming || []).forEach((c) => {
+    const hit = byKey[cardKey(c)];
+    if (hit && !used[hit.id]) {
+      used[hit.id] = true;
+      if (String(hit.content || '') !== String(c.content || '')) {
+        updates.push({
+          id: hit.id, renamed: false,
+          patch: { content: c.content, tags: c.tags || [], lineNo: c.lineNo,
+                   src: { file: c.src.file, nodePath: c.src.nodePath } },
+        });
+      } else {
+        keeps.push({ id: hit.id });
+      }
+      return;
+    }
+    // 模糊兜底：同一节里按顺序对应（你把这条的字改了 → 标题也跟着变了）
+    const pool = (byNode[nodeKey(c)] || []).filter((n) => !used[n.id]);
+    if (pool.length) {
+      const cand = pool[0];
+      used[cand.id] = true;
+      updates.push({
+        id: cand.id, renamed: String(cand.title || '') !== String(c.title || ''),
+        patch: {
+          title: c.title, content: c.content, tags: c.tags || [], lineNo: c.lineNo,
+          src: { file: c.src.file, nodePath: c.src.nodePath },
+        },
+      });
+      return;
+    }
+    adds.push(c);
+  });
+
+  // 孤儿：只在这一批导入涉及的文件里找，别误伤别的笔记/手写的卡
+  const files = {};
+  (incoming || []).forEach((c) => { if (c && c.src && c.src.file) files[c.src.file] = true; });
+  const orphans = (existing || []).filter((n) => n && n.src && files[n.src.file] && !used[n.id]);
+  return { updates, keeps, adds, orphans };
+}
+
 /* ==================== ⑤ 掌握度计算 ==================== */
 
 const TIER = {
@@ -411,6 +505,8 @@ function annotate(originalText, markMap, opts) {
   let fence = false;
   let hits = 0;
   let tagged = 0;
+  const hitKeys = {};                 // 这次成功标注到的 mark 键
+  const allKeys = Object.keys(markMap || {});
 
   for (let i = 0; i < lines.length; i += 1) {
     const raw = lines[i];
@@ -429,6 +525,10 @@ function annotate(originalText, markMap, opts) {
           const key = cleanInline(m[2]);
           const info = idx.exact[key] || idx.loose[normKey(m[2])];
           if (info) {
+            // 记下命中的原始 mark 键（宽松匹配时用归一化名反查）
+            allKeys.forEach((k) => {
+              if (idx.exact[k] === info || idx.loose[normKey(k)] === info) hitKeys[k] = true;
+            });
             const tail = info.reviews > 0
               ? '掌握度 ' + info.pct + '% · 复习 ' + info.reviews + ' 次 · 下次 ' + fmtDate(info.nextDue)
               : '尚未学习 · 导入后还没练过';
@@ -444,7 +544,9 @@ function annotate(originalText, markMap, opts) {
     out.push(raw);
   }
 
-  return { text: head + out.join('\n'), hits, tagged, front: !!o.front };
+  // 没对上的 mark 键 = 笔记里已经找不到这个标题了（多半是你改过标题）
+  const missing = allKeys.filter((k) => !hitKeys[k]);
+  return { text: head + out.join('\n'), hits, tagged, front: !!o.front, missing };
 }
 
 /* ==================== ⑦ 待复习清单（生成给 Obsidian 的 .md） ==================== */
@@ -724,6 +826,7 @@ function fileBase(p) {
 }
 
 module.exports = {
+  cardKey, nodeKey, matchImport,
   TIER, cleanInline, extractTags, baseName, stripExt, fmtDate,
   countEmptyNodes, countHeadings, fileBase,
   splitFrontmatter, scan, buildTree, cardsOfNode, walkCards,

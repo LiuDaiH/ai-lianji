@@ -105,8 +105,44 @@
       </view>
     </view>
 
-    <view hover-class="hover-dim" class="btn-primary pick {{busy ? 'busy' : ''}}" bindtap="onPick">
+    <view hover-class="hover-dim" class="btn-primary pick {{busy ? 'busy' : ''}}" bindtap="onPick"
+          wx:if="{{stage === 'idle'}}">
       {{busy ? '解析中…' : '📎 从聊天选文件（.md / .zip）'}}
+    </view>
+
+    <!-- ============ 多个文件：先挑要导哪些（vault 大时别全吞） ============ -->
+    <view class="card pick-card" wx:if="{{stage === 'pick'}}">
+      <view class="sec">选要导入的文件</view>
+      <view class="subtle pk-tip">
+        读到 {{pick.total}} 个 .md，已选 <text class="pk-n">{{pick.onCount}}</text> 个。
+        点文件夹名可整组开关。
+      </view>
+      <view hover-class="hover-dim" class="pk-allbtn" bindtap="onPickAll">
+        {{pick.onCount < pick.total ? '全选' : '全不选'}}
+      </view>
+
+      <scroll-view scroll-y class="pk-list">
+        <view class="pk-group" wx:for="{{pick.groups}}" wx:for-item="g" wx:for-index="gi" wx:key="dir">
+          <view class="pk-ghead" data-g="{{gi}}" bindtap="onPickGroup" hover-class="hover-dim">
+            <view class="pk-box {{g.on ? 'on' : ''}}">{{g.on ? '✓' : (g.someOn ? '−' : '')}}</view>
+            <view class="pk-dir">{{g.dir}}</view>
+            <view class="pk-cnt">{{g.count}} 个</view>
+          </view>
+          <view class="pk-file" wx:for="{{g.files}}" wx:for-item="f" wx:for-index="fi" wx:key="relPath"
+                data-g="{{gi}}" data-i="{{fi}}" bindtap="onPickToggle" hover-class="hover-dim">
+            <view class="pk-box {{f.on ? 'on' : ''}}">{{f.on ? '✓' : ''}}</view>
+            <view class="pk-name">{{f.name}}</view>
+            <view class="pk-k">{{f.chars}} 字</view>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="d-ops">
+        <view hover-class="hover-dim" class="btn-ghost f1" bindtap="onPickCancel">取消</view>
+        <view hover-class="hover-dim" class="btn-primary f1" bindtap="onPickConfirm">
+          解析这 {{pick.onCount}} 个
+        </view>
+      </view>
     </view>
 
     <view class="card tip-card">
@@ -142,6 +178,17 @@
         两个都关掉 = 全部塞进「未分类」，只把内容当卡片。
       </view>
 
+      <!-- 只导入带这些标签的卡片（不选 = 全都导） -->
+      <view class="tag-sec" wx:if="{{tagOpts.length}}">
+        <view class="subtle">只导入带这些标签的卡片（不选 = 全部导入）</view>
+        <view class="tag-row">
+          <view class="tag-chip {{tagSel[item.tag] ? 'on' : ''}}" wx:for="{{tagOpts}}" wx:key="tag"
+                data-tag="{{item.tag}}" bindtap="onTagToggle" hover-class="hover-dim">
+            #{{item.tag}}<text class="tc-n">{{item.count}}</text>
+          </view>
+        </view>
+      </view>
+
       <view class="sec tree-sec">类别树预览</view>
       <scroll-view scroll-y class="tree-preview">
         <view class="tp-row" wx:for="{{rows}}" wx:key="index" style="padding-left:{{(item.depth > 7 ? 7 : item.depth) * 22}}rpx">
@@ -159,6 +206,12 @@
 
     <view class="card done" wx:if="{{result}}">
       <view class="done-t">✅ {{result}}</view>
+      <view class="orphan" wx:if="{{orphan}}">
+        <view class="orphan-t">有 {{orphan}} 张卡对应的笔记段落已经没了（删掉或改了标题）</view>
+        <view hover-class="hover-dim" class="btn-ghost orphan-btn" bindtap="onCleanOrphans">
+          清理这 {{orphan}} 张
+        </view>
+      </view>
     </view>
   </block>
 

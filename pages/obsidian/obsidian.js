@@ -22,6 +22,11 @@ Page({
     tourActive: false, tourFlow: 'obsidian', pageStyle: '',
     tab: 'in',
     busy: false,
+    // 导入三步：'idle' → 'pick'（挑文件，仅多文件时）→ 'preview'（预览+导入）
+    stage: 'idle',
+    pick: { groups: [], onCount: 0, total: 0 },
+    tagOpts: [], tagSel: {}, tagOn: 0,
+    orphan: 0,
     preview: null,
     rows: [],
     opt: { folder: true, head: true },
@@ -125,12 +130,108 @@ Page({
     }
 
     wx.hideLoading();
+    this._zipCount = zipCount;
+    this._skipped = skipped;
 
     if (!collected.length) {
       this.setData({ busy: false });
       wx.showToast({ title: skipped ? '没有可解析的 .md 文件' : '没有读到文件', icon: 'none' });
       return;
     }
+
+    // 只有一个文件就直接进预览；多个文件先让用户挑（vault 几百个 md 不能全吞）
+    if (collected.length === 1) {
+      this._collected = collected;
+      this.parseSelected(collected);
+      return;
+    }
+    this._collected = collected;
+    this.setData({
+      busy: false,
+      stage: 'pick',
+      pick: this.buildPick(collected),
+      result: '',
+    });
+  },
+
+  /** 把读到的文件按文件夹分组，做成可勾选的清单 */
+  buildPick(collected) {
+    const map = {};
+    const order = [];
+    collected.forEach((f) => {
+      const rel = String(f.relPath || '').replace(/\\/g, '/');
+      const parts = rel.split('/');
+      const name = parts.pop();
+      const dir = parts.join('/') || '（根目录）';
+      if (!map[dir]) { map[dir] = []; order.push(dir); }
+      map[dir].push({ relPath: f.relPath, name, chars: (f.text || '').length, on: true });
+    });
+    const groups = order.map((dir) => ({
+      dir,
+      files: map[dir],
+      on: true,
+      count: map[dir].length,
+    }));
+    return { groups, onCount: collected.length, total: collected.length };
+  },
+
+  onPickToggle(e) {
+    const { g, i } = e.currentTarget.dataset;
+    const groups = this.data.pick.groups.slice();
+    const gi = Number(g);
+    const fi = Number(i);
+    const f = groups[gi].files[fi];
+    f.on = !f.on;
+    groups[gi].on = groups[gi].files.every((x) => x.on);
+    this.setData({ pick: this.recountPick(groups) });
+  },
+
+  onPickGroup(e) {
+    const gi = Number(e.currentTarget.dataset.g);
+    const groups = this.data.pick.groups.slice();
+    const to = !groups[gi].files.every((x) => x.on);
+    groups[gi].files.forEach((x) => { x.on = to; });
+    groups[gi].on = to;
+    this.setData({ pick: this.recountPick(groups) });
+  },
+
+  onPickAll() {
+    const groups = this.data.pick.groups.slice();
+    const to = this.data.pick.onCount < this.data.pick.total;
+    groups.forEach((g) => { g.files.forEach((x) => { x.on = to; }); g.on = to; });
+    this.setData({ pick: this.recountPick(groups) });
+  },
+
+  recountPick(groups) {
+    let on = 0, total = 0;
+    groups.forEach((g) => {
+      const n = g.files.filter((x) => x.on).length;
+      g.count = g.files.length;
+      g.on = n === g.files.length;
+      g.someOn = n > 0 && n < g.files.length;
+      on += n; total += g.files.length;
+    });
+    return { groups, onCount: on, total };
+  },
+
+  onPickCancel() { this._collected = null; this.setData({ stage: 'idle', pick: { groups: [], onCount: 0, total: 0 } }); },
+
+  onPickConfirm() {
+    const picked = [];
+    this.data.pick.groups.forEach((g) => g.files.forEach((f) => { if (f.on) picked.push(f.relPath); }));
+    if (!picked.length) {
+      wx.showToast({ title: '至少选一个文件', icon: 'none' });
+      return;
+    }
+    const all = this._collected || [];
+    const sel = all.filter((f) => picked.indexOf(f.relPath) >= 0);
+    this.parseSelected(sel);
+  },
+
+  /** 把选中的文件解析成卡片并给出预览（原 loadFiles 的后半段） */
+  parseSelected(collected) {
+    if (!collected.length) return;
+    wx.showLoading({ title: '解析中…', mask: true });
 
     const parsed = fs.parseVault(collected);
     const cards = [];
@@ -149,6 +250,7 @@ Page({
 
     const tree = fs.paths2tree(cards.map((c) => c.catPath));
     this._raw = { parsed, cards, collected };
+    this._collected = collected;
 
     // 统计「有标题但没正文」的节点 —— 这些不会出卡，要如实告诉用户
     let emptyNodes = 0;
@@ -158,12 +260,24 @@ Page({
       headings += fs.countHeadings(p.root);
     });
 
+    // 标签（给"只导入带某标签的卡"用）
+    const tagMap = {};
+    cards.forEach((c) => (c.tags || []).forEach((t) => { tagMap[t] = (tagMap[t] || 0) + 1; }));
+    const tagOpts = Object.keys(tagMap)
+      .map((t) => ({ tag: t, count: tagMap[t] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 24);
+
+    wx.hideLoading();
     this.setData({
       busy: false,
+      stage: 'preview',
+      tagOpts, tagSel: {}, tagOn: 0,
+      orphan: 0,
       preview: {
         files: parsed.files.length,
-        zips: zipCount,
-        skipped,
+        zips: this._zipCount || 0,
+        skipped: this._skipped || 0,
         cards: cards.length,
         cats: parsed.categories.length,
         headings,
@@ -171,6 +285,13 @@ Page({
       },
       rows: previewRows(tree, 0, [], MAX_PREVIEW_ROWS),
     });
+  },
+
+  onTagToggle(e) {
+    const tag = e.currentTarget.dataset.tag;
+    const sel = Object.assign({}, this.data.tagSel);
+    if (sel[tag]) delete sel[tag]; else sel[tag] = true;
+    this.setData({ tagSel: sel, tagOn: Object.keys(sel).length });
   },
 
   /** 解压 zip 并递归读 .md */
@@ -201,58 +322,91 @@ Page({
     this.setData({ opt });
   },
 
-  onCancelPreview() { this._raw = null; this.setData({ preview: null, rows: [] }); },
+  onCancelPreview() {
+    this._raw = null;
+    const back = (this._collected && this._collected.length > 1) ? 'pick' : 'idle';
+    this.setData({ preview: null, rows: [], stage: back, orphan: 0, tagOpts: [], tagSel: {}, tagOn: 0 });
+  },
 
   onConfirmImport() {
     const raw = this._raw;
     if (!raw) return;
     const opt = this.data.opt;
-    const existing = store.listNotes();
-    const seen = {};
-    existing.forEach((n) => { seen[(n.title || '') + '\u0001' + (n.content || '')] = true; });
+    const tagSel = this.data.tagSel;
+    const tagOn = Object.keys(tagSel).length > 0;
+
+    // ④ 按标签筛选：选了标签就只导带这些标签的卡片
+    let incoming = raw.cards;
+    if (tagOn) incoming = incoming.filter((c) => (c.tags || []).some((t) => tagSel[t]));
+    if (!incoming.length) {
+      wx.showToast({ title: '这个标签下没有卡片', icon: 'none' });
+      return;
+    }
 
     const counters = { n: 0 };
-    const toAdd = [];
-    let dup = 0;
-
-    raw.cards.forEach((c) => {
-      const key = c.title + '\u0001' + c.content;
-      if (seen[key]) { dup += 1; return; }
-      seen[key] = true;
-      const path = (opt.folder ? c.folders : [])
-        .concat(opt.head ? c.nodePath : [c.fileTitle]);
+    const prepared = incoming.map((c) => {
+      const path = (opt.folder ? c.folders : []).concat(opt.head ? c.nodePath : [c.fileTitle]);
       const r = cat.ensurePath(path, counters);
-      toAdd.push({
+      return {
         title: c.title,
         content: c.content,
         tags: c.tags || [],
         categoryId: r.id || null,
-        // lineNo: 该卡片在源文件里的行号 —— 回写定位与 [[文件名]] 匹配都要用
         lineNo: typeof c.lineNo === 'number' ? c.lineNo : null,
         src: { file: c.file, nodePath: c.nodePath },
-      });
+      };
     });
 
-    store.addNotes(toAdd);
+    // ① 稳定身份匹配：同一段笔记再导一次 = 更新那张卡，而不是再长一张双胞胎
+    const existing = store.listNotes();
+    const m = fs.matchImport(existing, prepared);
+    const res = store.patchNotes(m.updates.map((x) => ({ id: x.id, patch: x.patch })), []);
+    store.addNotes(m.adds);
 
     // 存档原文，供回写
     let bytes = 0;
     raw.collected.forEach((f) => { bytes += (f.text || '').length; });
-    const keep = [];
-    raw.collected.forEach((f) => {
-      keep.push({ relPath: f.relPath, text: f.text, importedAt: Date.now() });
-    });
+    const keep = raw.collected.map((f) => ({ relPath: f.relPath, text: f.text, importedAt: Date.now() }));
     if (bytes <= MAX_SOURCE_BYTES) store.upsertObsidianSources(keep);
+
+    const renamed = m.updates.filter((x) => x.renamed).length;
+    // ⚠️ 用了标签筛选就别报孤儿：没被导进来的卡不是"被删了"，只是你没选
+    const orphans = tagOn ? [] : m.orphans;
+    this._orphans = orphans;
 
     this._raw = null;
     this.refreshSources();
     this.setData({
-      preview: null, rows: [],
-      result: '已导入 ' + toAdd.length + ' 张卡片、新建 ' + counters.n + ' 个类别'
-              + (dup ? '，跳过重复 ' + dup + ' 张' : '')
-              + (bytes > MAX_SOURCE_BYTES ? '（原文超过 2MB，未存档，回写请用汇总报告）' : ''),
+      preview: null, rows: [], stage: 'idle', tagOpts: [], tagSel: {}, tagOn: 0,
+      orphan: orphans.length,
+      result: '更新 ' + m.updates.length + ' 张'
+        + (renamed ? '（其中改名 ' + renamed + ' 张）' : '')
+        + ' · 新增 ' + m.adds.length + ' 张'
+        + ' · 未变 ' + m.keeps.length + ' 张'
+        + (tagOn ? '（已按标签筛选）' : '')
+        + (bytes > MAX_SOURCE_BYTES ? '（原文超 2MB，未存档，回写请用汇总报告）' : ''),
     });
     wx.showToast({ title: '导入完成', icon: 'success' });
+  },
+
+  /** ④ 清理「笔记里已经删掉、卡片还留着」的孤儿 */
+  onCleanOrphans() {
+    const list = this._orphans || [];
+    if (!list.length) return;
+    const names = list.slice(0, 3).map((n) => n.title).join('、');
+    wx.showModal({
+      title: '清理 ' + list.length + ' 张孤儿卡？',
+      content: '这些卡片对应的笔记段落已经不在这次的导入里了（可能你删了或改了）：' + names
+        + (list.length > 3 ? ' 等' : '') + '。删掉后它们的复习记录也没了。',
+      confirmText: '删除', confirmColor: '#D93025',
+      success: (r) => {
+        if (!r.confirm) return;
+        store.patchNotes([], list.map((n) => n.id));
+        this._orphans = [];
+        this.setData({ orphan: 0, result: '已清理 ' + list.length + ' 张孤儿卡' });
+        this.refreshSources();
+      },
+    });
   },
 
   /* ==================== 回写 ==================== */
@@ -330,6 +484,7 @@ Page({
   doExport() {
     this._queue = store.readObsidianSources().slice();
     this._done = 0;
+    this._missing = [];          // ③ 累计「笔记里找不到的标题」
     this._total = this._queue.length;
     wx.showModal({
       title: '逐个导出（共 ' + this._total + ' 个文件）',
@@ -341,13 +496,17 @@ Page({
 
   exportNext() {
     if (!this._queue || !this._queue.length) {
-      wx.showToast({ title: '全部导出完成', icon: 'success' });
+      this.finishExport();
       return;
     }
     const src = this._queue.shift();
     const marks = (this._markMap && this._markMap[src.relPath]) || {};
     const front = (this._fileAgg && this._fileAgg[src.relPath]) || null;
     const res = fs.annotate(src.text, marks, { front });
+    // ③ 记下这个文件里"找不到对应标题"的那些（多半是你改过标题）
+    if (res.missing && res.missing.length) {
+      res.missing.forEach((k) => { this._missing.push(fs.baseName(src.relPath) + ' › ' + k); });
+    }
     const name = fs.baseName(src.relPath);
     const path = wx.env.USER_DATA_PATH + '/' + name;
 
@@ -384,6 +543,28 @@ Page({
     });
   },
 
+  /** ③ 导出收尾：如果有些标题在笔记里对不上，明说出来 */
+  finishExport() {
+    const miss = this._missing || [];
+    if (!miss.length) {
+      wx.showToast({ title: '全部导出完成', icon: 'success' });
+      this.setData({ result: '全部导出完成 · 所有标题都标注上了' });
+      return;
+    }
+    const head = miss.slice(0, 5).join(String.fromCharCode(10));
+    const more = miss.length > 5 ? '…还有 ' + (miss.length - 5) + ' 个' : '';
+    wx.showModal({
+      title: miss.length + ' 个标题没对上',
+      content: '这些标题在你的笔记里找不到了（可能你改过标题名），所以那几段拿不到掌握度：'
+        + String.fromCharCode(10) + head + String.fromCharCode(10) + more,
+      showCancel: false,
+      confirmText: '知道了',
+      success: () => this.setData({
+        result: '导出完成 · 但有 ' + miss.length + ' 个标题在笔记里找不到（改过标题名？）：「'
+          + miss.slice(0, 3).join('」「') + '」' + (miss.length > 3 ? ' 等' : ''),
+      }),
+    });
+  },
   /* ==================== 汇总报告 / 待复习清单 ==================== */
 
   /** 单文件出口：写盘 → 分享面板 → 面板不可用就降级剪贴板（报告与待复习清单共用） */

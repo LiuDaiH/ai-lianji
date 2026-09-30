@@ -68,6 +68,35 @@ function updateNote(id, patch) {
 
 function removeNote(id) { writeNotes(readNotes().filter((n) => n.id !== id)); }
 
+/**
+ * 批量改 + 批量删（导入时"就地更新"要用）
+ * 逐张 updateNote 是「读一次写一次」，400 张就是 400 次读写；这里只读写一遍。
+ * @param patches [{ id, patch }]
+ * @param removes [id]
+ * @returns { updated, removed }
+ */
+function patchNotes(patches, removes) {
+  const list = readNotes();
+  const byId = {};
+  list.forEach((n, i) => { byId[n.id] = i; });
+  let updated = 0;
+  (patches || []).forEach((x) => {
+    if (!x || !x.patch) return;
+    const i = byId[x.id];
+    if (i === undefined) return;
+    if (!Object.keys(x.patch).length) return;
+    list[i] = Object.assign({}, list[i], x.patch);
+    updated += 1;
+  });
+  let out = list;
+  const del = {};
+  (removes || []).forEach((id) => { del[id] = true; });
+  const removed = Object.keys(del).length;
+  if (removed) out = list.filter((n) => !del[n.id]);
+  writeNotes(out);
+  return { updated, removed };
+}
+
 function clearCategory(catIds) {
   const list = readNotes();
   let n = 0;
@@ -221,7 +250,7 @@ function takeIntroPending() {
 }
 
 module.exports = {
-  addNote, addNotes, listNotes, getNote, updateNote, removeNote,
+  addNote, addNotes, listNotes, getNote, updateNote, removeNote, patchNotes,
   clearCategory, countByCategory, seedIfEmpty, isSeeded,
   addLog, readLogs, addQuizResult, readQuizResults,
   exportJSON, importJSON, stats,
